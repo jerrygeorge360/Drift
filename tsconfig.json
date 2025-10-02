@@ -1,0 +1,19 @@
+
+
+{
+  "compilerOptions": {
+    "target": "es2020",         // allows async/await
+    "module": "esnext",         // allows top-level await
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "sourceMap": true
+  },
+  "include": ["src", "scripts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,51 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id           String       @id @default(cuid())
+  address      String       @unique
+  createdAt    DateTime     @default(now())
+  rules        Rule[]
+  actions      Action[]
+  delegations  Delegation[]    // multiple bots possible in future
+}
+
+model Rule {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  allocations Json     // e.g., { USDT:0.5, ETH:0.3, OTHER:0.2 }
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Delegation {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  botAddress String
+  createdAt  DateTime @default(now())
+}
+
+model Action {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  txHash    String
+  reason    String
+  createdAt DateTime @default(now())
+}
