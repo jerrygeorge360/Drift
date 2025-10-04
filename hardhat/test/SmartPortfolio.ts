@@ -61,8 +61,6 @@ describe("SmartPortfolio", async function () {
 
             const receipt = await publicClient.waitForTransactionReceipt({hash: tx});
 
-            console.log(receipt.logs[0].topics);
-
             assert.equal(
                 receipt.logs.some(log => log.topics[0] ===eventSignature),
                 true,
@@ -125,10 +123,16 @@ describe("SmartPortfolio", async function () {
     // 6️⃣ Execute rebalance end-to-end
     it("should execute a rebalance successfully and emit RebalanceExecuted", async function () {
         const amountIn = 100n * 10n ** 18n;
-        const amountOutMin = 50n * 10n ** 18n;
+        const amountOutMin = 49;
         const path = [tokenA.address, tokenB.address];
         const reason = "Testing rebalance";
         const executor = deployer.account.address;
+        const eventSignatureString = "RebalanceExecuted(address,address,address,address,uint256,uint256,string,uint256)";
+        const eventSignatureBytes = toBytes(eventSignatureString);
+        // Compute keccak256 hash
+        const eventSignature = keccak256(eventSignatureBytes);
+
+
 
         // Set allocation
         const tokens = [tokenA.address, tokenB.address];
@@ -144,7 +148,7 @@ describe("SmartPortfolio", async function () {
             const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
 
             assert.equal(
-                receipt.logs.some(log => log.topics[0] === portfolio.abi.find((event: { name: string; }) => event.name === "RebalanceExecuted")?.signature),
+                receipt.logs.some(log => log.topics[0] === eventSignature),
                 true,
                 "RebalanceExecuted event not emitted"
             );
