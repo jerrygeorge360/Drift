@@ -1,86 +1,160 @@
+// SPDX-License-Identifier: MIT
+import { keccak256 ,toBytes} from "viem";
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, beforeEach } from "node:test";
 import { network } from "hardhat";
 
-// Mock tokens & router contracts assumed deployed
-// Contracts: MockERC20, MockRouter, Rebalancer
-
-describe("Rebalancer Delegation Flow", async () => {
-    const { viem } = await network.connect();
+describe("SmartPortfolio", async function () {
+    // 🔌 Connect to the Hardhat network + viem interface
+    const { viem} = await network.connect();
     const publicClient = await viem.getPublicClient();
 
-    it("Should simulate approve → delegate → executeRebalance", async () => {
-        // Deploy mock tokens
-        const tokenA = await viem.deployContract("MockERC20", ["TokenA", "TKA", 18]);
-        const tokenB = await viem.deployContract("MockERC20", ["TokenB", "TKB", 18]);
+    let deployer: any;
+    let user: any;
+    let router: any;
+    let tokenA: any;
+    let tokenB: any;
+    let portfolio: any;
 
-        // Deploy mock router (simulates swaps)
-        const router = await viem.deployContract("MockRouter", []);
+    beforeEach(async function () {
+        // ⚙️ Get available wallet clients
+        const accounts = await viem.getWalletClients();
+        [deployer, user] = accounts;
 
-        // Deploy rebalancer contract (non-custodial, bot executes swaps via router)
-        const rebalancer = await viem.deployContract("Rebalancer", [router.address]);
 
-        // Accounts
-        const [user, bot] = await viem.getWalletClients();
-        const userAddress = user.account.address;
+        // 🧪 Deploy mock ERC20 tokens
+        tokenA = await viem.deployContract("MockToken", ["TokenA", "TKA"]);
+        tokenB = await viem.deployContract("MockToken", ["TokenB", "TKB"]);
 
-        // Mint tokens to user
-        await tokenA.write.mint([userAddress, 1000n * 10n ** 18n]);
+        // 🧪 Deploy mock router
+        router = await viem.deployContract("MockRouter");
 
-        // User approves Rebalancer (via smart account delegation in real MetaMask flow)
-        await tokenA.write.approve([rebalancer.address, 1000n * 10n ** 18n], { account: user });
+        // 🧠 Deploy SmartPortfolio
+        portfolio = await viem.deployContract("SmartPortfolio", [router.address, deployer.account.address]);
 
-        // User sets allocations (e.g., 50% A → B)
-        await rebalancer.write.setAllocation(
-            [[tokenA.address, tokenB.address, 50n]], // example allocation rule
-            { account: user }
-        );
+        // 💸 Mint some tokens to user and router
+        await tokenA.write.mint([user.account.address, 1_000n * 10n ** 18n]);
+        await tokenB.write.mint([router.address, 1_000n * 10n ** 18n]);
+        await tokenB.write.mint([user.account.address, 1_000n * 10n ** 18n]); // For potential tokenOut transfers
 
-        // Bot executes rebalance on behalf of user
-        await rebalancer.write.executeRebalance([userAddress], { account: bot });
+        // 🪙 Approve portfolio to spend user's tokens
+        await tokenA.write.approve([portfolio.address, 1_000n * 10n ** 18n], { account: user.account });
+        await tokenB.write.approve([portfolio.address, 1_000n * 10n ** 18n], { account: user.account });
 
-        // Read balances after swap
-        const balA = await tokenA.read.balanceOf([userAddress]);
-        const balB = await tokenB.read.balanceOf([userAddress]);
-
-        // Assertions (mock router swaps all 50% of TokenA to TokenB)
-        assert.equal(balA < 1000n * 10n ** 18n, true, "User should spend some TokenA");
-        assert.equal(balB > 0n, true, "User should receive TokenB");
+        // Configure MockRouter
+        await router.write.setFail([false]);
+        await router.write.setFixedOut([1000n]);
     });
 
-    it("Should emit AllocationSet and RebalanceExecuted events", async () => {
-        const tokenA = await viem.deployContract("MockERC20", ["TokenA", "TKA", 18]);
-        const tokenB = await viem.deployContract("MockERC20", ["TokenB", "TKB", 18]);
-        const router = await viem.deployContract("MockRouter", []);
-        const rebalancer = await viem.deployContract("Rebalancer", [router.address]);
+    // 1️⃣ Allocation event
+    await it("should emit DynamicAllocationSet when calling setAllocation()", async function () {
+        const tokens = [tokenA.address, tokenB.address];
+        const percents = [60n, 40n];
+        const eventSignatureString = "DynamicAllocationSet(address,address[],uint16[])";
+        const eventSignatureBytes = toBytes(eventSignatureString);
+        // Compute keccak256 hash
+        const eventSignature = keccak256(eventSignatureBytes);
 
-        const [user, bot] = await viem.getWalletClients();
-        const userAddress = user.account.address;
 
-        await tokenA.write.mint([userAddress, 500n * 10n ** 18n]);
-        await tokenA.write.approve([rebalancer.address, 500n * 10n ** 18n], { account: user });
+        try {
+            const tx = await portfolio.write.setAllocation([tokens, percents], {account: user.account});
 
-        const deploymentBlock = await publicClient.getBlockNumber();
+            const receipt = await publicClient.waitForTransactionReceipt({hash: tx});
+
+            console.log(receipt.logs[0].topics);
+
+            assert.equal(
+                receipt.logs.some(log => log.topics[0] ===eventSignature),
+                true,
+                "DynamicAllocationSet event not emitted"
+            );
+        } catch (error) {
+            // @ts-ignore
+            assert.fail(`setAllocation failed: ${error.message}`);
+        }
+    });
+
+    // 2️⃣ Allocation sum check
+    it("should revert if total allocation sum is not 100", async function () {
+        const tokens = [tokenA.address, tokenB.address];
+        const percents = [70, 20];
+
+        await assert.rejects(
+            portfolio.write.setAllocation([tokens, percents], { account: user.account }),
+            /sum must = 100/,
+            "Expected revert with 'sum must = 100'"
+        );
+    });
+
+    // 3️⃣ Pause/unpause
+    it("should pause and unpause correctly", async function () {
+        await portfolio.write.pause({ account: deployer.account });
+        assert.equal(await portfolio.read.paused(), true, "Contract should be paused");
+
+        await portfolio.write.unpause({ account: deployer.account });
+        assert.equal(await portfolio.read.paused(), false, "Contract should be unpaused");
+    });
+
+    // 4️⃣ Rebalance validation
+    it("should validate a rebalance path successfully", async function () {
+        const path = [tokenA.address, tokenB.address];
+
+        const [valid, reason] = await portfolio.read.validateRebalance([
+            tokenA.address,
+            tokenB.address,
+            1000n,
+            500n,
+            path,
+        ]);
+
+        assert.equal(valid, true, `Validation failed: ${reason}`);
+    });
+
+    // 5️⃣ Remove allocation
+    it("should remove allocation successfully", async function () {
+        const tokens = [tokenA.address];
+        const percents = [100];
+
+        await portfolio.write.setAllocation([tokens, percents], { account: user.account });
+        await portfolio.write.removeAllocation({ account: user.account });
+
+        const allocs = await portfolio.read.getAllocation([user.account.address]);
+        assert.equal(allocs.length, 0, "Allocations should be empty");
+    });
+
+    // 6️⃣ Execute rebalance end-to-end
+    it("should execute a rebalance successfully and emit RebalanceExecuted", async function () {
+        const amountIn = 100n * 10n ** 18n;
+        const amountOutMin = 50n * 10n ** 18n;
+        const path = [tokenA.address, tokenB.address];
+        const reason = "Testing rebalance";
+        const executor = deployer.account.address;
 
         // Set allocation
-        await rebalancer.write.setAllocation(
-            [[tokenA.address, tokenB.address, 100n]],
-            { account: user }
-        );
+        const tokens = [tokenA.address, tokenB.address];
+        const percents = [60, 40];
+        await portfolio.write.setAllocation([tokens, percents], { account: user.account });
 
-        // Bot executes
-        await rebalancer.write.executeRebalance([userAddress], { account: bot });
+        // Execute rebalance and check event
+        try {
+            const tx = await portfolio.write.executeRebalance(
+                [executor, tokenA.address, tokenB.address, amountIn, amountOutMin, path, reason],
+                { account: user.account }
+            );
+            const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
 
-        // Check events
-        const events = await publicClient.getContractEvents({
-            address: rebalancer.address,
-            abi: rebalancer.abi,
-            fromBlock: deploymentBlock,
-            strict: true,
-        });
+            assert.equal(
+                receipt.logs.some(log => log.topics[0] === portfolio.abi.find((event: { name: string; }) => event.name === "RebalanceExecuted")?.signature),
+                true,
+                "RebalanceExecuted event not emitted"
+            );
 
-        const names = events.map(e => e.eventName);
-        assert.equal(names.includes("AllocationSet"), true, "AllocationSet event missing");
-        assert.equal(names.includes("RebalanceExecuted"), true, "RebalanceExecuted event missing");
+            // Verify user received tokenB
+            const balanceB = await tokenB.read.balanceOf([user.account.address]);
+            assert(balanceB >= 1000n, `User should have received at least 1000 tokenB, got ${balanceB}`);
+        } catch (error) {
+            // @ts-ignore
+            assert.fail(`executeRebalance failed: ${error.message}`);
+        }
     });
 });

@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.28;
 
 /// Hardhat-ready contract: uses OpenZeppelin libraries
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+/// ---------------------------------------------
+/// Uniswap V2 Router Interface
+/// ---------------------------------------------
 interface IUniswapV2Router {
     function swapExactTokensForTokens(
         uint amountIn,
@@ -15,16 +19,20 @@ interface IUniswapV2Router {
         uint deadline
     ) external returns (uint[] memory amounts);
 
-    function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
+    function getAmountsOut(uint amountIn, address[] calldata path)
+    external view returns (uint[] memory amounts);
 }
 
-contract SmartPortfolioAA is Ownable, ReentrancyGuard {
+/// ---------------------------------------------
+/// SmartPortfolio: Dynamic Token Allocation Version
+/// ---------------------------------------------
+contract SmartPortfolio is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /// ------------------------
     /// Events
     /// ------------------------
-    event AllocationSet(address indexed user, uint16 usdtPct, uint16 ethPct, uint16 otherPct);
+    event DynamicAllocationSet(address indexed user, address[] tokens, uint16[] percents);
     event RebalanceExecuted(
         address indexed user,
         address indexed executor,
@@ -37,17 +45,18 @@ contract SmartPortfolioAA is Ownable, ReentrancyGuard {
     );
     event Paused(address indexed by);
     event Unpaused(address indexed by);
+    event ApprovalRevoked(address indexed user, address indexed token);
 
     /// ------------------------
     /// Storage
     /// ------------------------
-    struct Allocation {
-        uint16 usdtPercent;
-        uint16 ethPercent;
-        uint16 otherPercent;
+    struct TokenAllocation {
+        address token;
+        uint16 percent; // out of 100
     }
 
-    mapping(address => Allocation) public allocations;
+    /// Mapping of user → dynamic token allocation list
+    mapping(address => TokenAllocation[]) private _userAllocations;
 
     /// Router (UniswapV2-style)
     IUniswapV2Router public immutable router;
@@ -58,7 +67,7 @@ contract SmartPortfolioAA is Ownable, ReentrancyGuard {
     /// ------------------------
     /// Constructor
     /// ------------------------
-    constructor(address _router) {
+    constructor(address _router, address initialOwner) Ownable(initialOwner) {
         require(_router != address(0), "router=0");
         router = IUniswapV2Router(_router);
     }
@@ -72,43 +81,41 @@ contract SmartPortfolioAA is Ownable, ReentrancyGuard {
     }
 
     /// ------------------------
-    /// User-facing: set allocation
+    /// User-facing: set allocation (dynamic version)
     /// ------------------------
-    /// Caller MUST be the user's smart account (i.e., msg.sender is the smart account).
-    function setAllocation(uint16 usdtPct, uint16 ethPct, uint16 otherPct) external {
-        require(usdtPct + ethPct + otherPct == 100, "sum must = 100");
-        allocations[msg.sender] = Allocation(usdtPct, ethPct, otherPct);
-        emit AllocationSet(msg.sender, usdtPct, ethPct, otherPct);
+    function setAllocation(address[] calldata tokens, uint16[] calldata percents) external {
+        require(tokens.length == percents.length, "length mismatch");
+        require(tokens.length > 0, "no tokens");
+
+        uint256 total;
+        delete _userAllocations[msg.sender]; // clear old allocation
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            require(tokens[i] != address(0), "zero token");
+            require(percents[i] > 0, "zero percent");
+            total += percents[i];
+
+            _userAllocations[msg.sender].push(
+                TokenAllocation({token: tokens[i], percent: percents[i]})
+            );
+        }
+
+        require(total == 100, "sum must = 100");
+
+        emit DynamicAllocationSet(msg.sender, tokens, percents);
     }
 
     /// @notice Remove allocation (reset to 0)
     function removeAllocation() external {
-        delete allocations[msg.sender];
-        emit AllocationSet(msg.sender, 0, 0, 0);
+        delete _userAllocations[msg.sender];
+        emit DynamicAllocationSet(msg.sender, new address[](0), new uint16[](0));
     }
 
     /// ------------------------
-    /// Bot-triggered (via user smart account's executeOnBehalf)
+    /// Bot-triggered rebalance
     /// ------------------------
-    /**
-     * @notice Execute a non-custodial rebalance for the user.
-     *
-     * Security / flow assumptions:
-     * - `msg.sender` is expected to be the user's smart account (this is what executeOnBehalf achieves:
-     *    the bot submits a UserOperation signed by the session key; the smart account pays the bundler and
-     *    performs the call so the contract sees msg.sender == user's smart account).
-     * - Before calling this, the user must have approved this contract to spend `amountIn` of `tokenIn`:
-     *    IERC20(tokenIn).approve(contractAddress, amountIn);
-     * - The contract will:
-     *    1) pull tokenIn from msg.sender via transferFrom
-     *    2) approve the router and call swapExactTokensForTokens
-     *    3) send the output token(s) back to msg.sender
-     *
-     * @param executor Optional: address identifying the bot/executor that requested the user operation.
-     *                 This value is not enforced by the contract and is purely informational in the event log.
-     */
     function executeRebalance(
-        address executor,           // informational only, emitted in event
+        address executor,           // informational only
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
@@ -116,26 +123,26 @@ contract SmartPortfolioAA is Ownable, ReentrancyGuard {
         address[] calldata path,
         string calldata reason
     ) external nonReentrant whenNotPaused returns (uint256 amountOut) {
-        address user = msg.sender; // user's smart account (caller)
+        address user = msg.sender;
 
         require(user != address(0), "user=0");
         require(amountIn > 0, "amountIn=0");
         require(path.length >= 2, "path length");
         require(path[0] == tokenIn && path[path.length - 1] == tokenOut, "path mismatch");
 
-        // 1) Pull tokens from user's smart account (user must have approved this contract)
+        // 1) Pull tokens from user's smart account
         IERC20(tokenIn).safeTransferFrom(user, address(this), amountIn);
 
         // 2) Approve router
-        IERC20(tokenIn).safeApprove(address(router), amountIn);
+        IERC20(tokenIn).forceApprove(address(router), amountIn);
 
-        // 3) Execute swap on router, tokens returned to this contract
+        // 3) Execute swap on router
         uint[] memory amounts = router.swapExactTokensForTokens(
             amountIn,
             amountOutMin,
             path,
             address(this),
-            block.timestamp + 300 // 5 minute deadline
+            block.timestamp + 300 // 5 min deadline
         );
 
         amountOut = amounts[amounts.length - 1];
@@ -143,42 +150,50 @@ contract SmartPortfolioAA is Ownable, ReentrancyGuard {
         // 4) Transfer swapped tokens back to user
         IERC20(tokenOut).safeTransfer(user, amountOut);
 
-        // 5) Reset allowance to 0 for safety (optional -- costs gas)
-        IERC20(tokenIn).safeApprove(address(router), 0);
+        // 5) Reset allowance for safety
+        IERC20(tokenIn).forceApprove(address(router), 0);
 
         // 6) Emit event
-        // executor argument is informational; it can be the bot EOA or any identifier included in the UserOp's callData
-        emit RebalanceExecuted(user, executor, tokenIn, tokenOut, amountIn, amountOut, reason, block.timestamp);
+        emit RebalanceExecuted(
+            user,
+            executor,
+            tokenIn,
+            tokenOut,
+            amountIn,
+            amountOut,
+            reason,
+            block.timestamp
+        );
     }
 
     /// ------------------------
     /// Query Functions (View)
     /// ------------------------
 
-    /// @notice Helper: estimate amounts out (read-only)
-    function getEstimatedOut(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory) {
+    /// @notice Get estimated output from router
+    function getEstimatedOut(uint256 amountIn, address[] calldata path)
+    external view returns (uint256[] memory)
+    {
         return router.getAmountsOut(amountIn, path);
     }
 
-    /// @notice Get user's current allocation settings
-    function getAllocation(address user) external view returns (uint16 usdtPct, uint16 ethPct, uint16 otherPct) {
-        Allocation memory alloc = allocations[user];
-        return (alloc.usdtPercent, alloc.ethPercent, alloc.otherPercent);
+    /// @notice Get user's dynamic allocation
+    function getAllocation(address user)
+    external view returns (TokenAllocation[] memory)
+    {
+        return _userAllocations[user];
     }
 
-    /// @notice Check if user has set an allocation
+    /// @notice Check if user has an allocation (sum = 100)
     function hasAllocation(address user) external view returns (bool) {
-        Allocation memory alloc = allocations[user];
-        return (alloc.usdtPercent + alloc.ethPercent + alloc.otherPercent) == 100;
-    }
+        TokenAllocation[] memory allocs = _userAllocations[user];
+        if (allocs.length == 0) return false;
 
-    /// @notice Batch function to get allocations for multiple users
-    function getAllocationsBatch(address[] calldata users) external view returns (Allocation[] memory) {
-        Allocation[] memory results = new Allocation[](users.length);
-        for (uint i = 0; i < users.length; i++) {
-            results[i] = allocations[users[i]];
+        uint256 total;
+        for (uint256 i = 0; i < allocs.length; i++) {
+            total += allocs[i].percent;
         }
-        return results;
+        return total == 100;
     }
 
     /// @notice Get contract balance for any token (transparency)
@@ -186,7 +201,7 @@ contract SmartPortfolioAA is Ownable, ReentrancyGuard {
         return IERC20(token).balanceOf(address(this));
     }
 
-    /// @notice Validate a rebalance before execution (simulation helper)
+    /// @notice Validate a rebalance before execution
     function validateRebalance(
         address tokenIn,
         address tokenOut,
@@ -200,7 +215,7 @@ contract SmartPortfolioAA is Ownable, ReentrancyGuard {
         if (path[0] != tokenIn) return (false, "Path start mismatch");
         if (path[path.length - 1] != tokenOut) return (false, "Path end mismatch");
 
-        // Check if router would give enough output
+        // Check expected output
         try router.getAmountsOut(amountIn, path) returns (uint[] memory amounts) {
             if (amounts[amounts.length - 1] < amountOutMin) {
                 return (false, "Slippage too high");
@@ -215,23 +230,19 @@ contract SmartPortfolioAA is Ownable, ReentrancyGuard {
     /// ------------------------
     /// User Safety Functions
     /// ------------------------
-
-    /// @notice Allow users to revoke approval (safety feature)
     function revokeApproval(address token) external {
-        IERC20(token).safeApprove(address(this), 0);
+        IERC20(token).forceApprove(address(router), 0);
+        emit ApprovalRevoked(msg.sender, token);
     }
 
     /// ------------------------
-    /// Admin Functions (Owner only)
+    /// Admin Functions
     /// ------------------------
-
-    /// @notice Emergency pause functionality
     function pause() external onlyOwner {
         paused = true;
         emit Paused(msg.sender);
     }
 
-    /// @notice Unpause the contract
     function unpause() external onlyOwner {
         paused = false;
         emit Unpaused(msg.sender);
