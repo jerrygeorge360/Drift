@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import prisma from "../config/db";
+import prisma from "../config/db.js";
 
 // GET /api/users
 export const getUsers = async (req: Request, res: Response, next: NextFunction) => {

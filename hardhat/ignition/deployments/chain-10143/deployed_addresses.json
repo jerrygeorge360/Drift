@@ -1,0 +1,8 @@
+{
+  "SmartPortfolioModule#MockRouter": "0xfb8e1c3b833f9e67a71c859a132cf783b645e436",
+  "SmartPortfolioModule#USDC": "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
+  "SmartPortfolioModule#USDT": "0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D",
+  "SmartPortfolioModule#WBTC": "0xcf5a6076cfa32686c0Df13aBaDa2b40dec133F1d",
+  "SmartPortfolioModule#WETH": "0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37",
+  "SmartPortfolioModule#WSOL": "0x5387C85A4965769f6B0Df430638a1388493486F1"
+}

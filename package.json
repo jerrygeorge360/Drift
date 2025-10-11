@@ -6,6 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
+    "delegation": "node --loader ts-node/esm src/delegation/app.ts",
     "blockchain": "node --loader ts-node/esm src/config/blockchain.ts",
     "migrate": "npx prisma migrate dev",
     "generate": "npx prisma generate"
@@ -23,6 +24,7 @@
   },
   "private": true,
   "dependencies": {
+    "@metamask/delegation-toolkit": "^0.13.0",
     "@prisma/client": "^6.16.3",
     "bcryptjs": "^3.0.2",
     "express": "^5.1.0",

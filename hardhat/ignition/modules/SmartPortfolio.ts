@@ -1,25 +1,21 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
 export default buildModule("SmartPortfolioModule", (m) => {
-    // Get the deployer's address using m.getAccount(0)
-    const deployer = m.getAccount(0); // First account (default deployer)
+    const deployer = m.getAccount(0); // Your deployer account
 
-    // Deploy mock tokens
-    const tokenA = m.contract("MockToken", ["TokenA", "TKA"], { id: "TokenA" });
-    const tokenB = m.contract("MockToken", ["TokenB", "TKB"], { id: "TokenB" });
+    // Reference existing contracts with m.contractAt()
+    const USDC = m.contractAt("MockToken", "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea", { id: "USDC" });
+    const USDT = m.contractAt("MockToken", "0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D", { id: "USDT" });
+    const WETH = m.contractAt("MockToken", "0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37", { id: "WETH" });
+    const WSOL = m.contractAt("MockToken", "0x5387C85A4965769f6B0Df430638a1388493486F1", { id: "WSOL" });
+    const WBTC = m.contractAt("MockToken", "0xcf5a6076cfa32686c0Df13aBaDa2b40dec133F1d", { id: "WBTC" });
 
-    // Deploy mock router
-    const router = m.contract("MockRouter", [], { id: "Router" });
+    const router = m.contractAt("MockRouter", "0xfb8e1c3b833f9e67a71c859a132cf783b645e436");
 
-    // Deploy SmartPortfolio
-    // Pass 'router' (contract reference) and 'deployer' (address string) to constructor
+    // Deploy your SmartPortfolio contract
     const portfolio = m.contract("SmartPortfolio", [router, deployer], { id: "Portfolio" });
 
-    // Set allocation
-    m.call(portfolio, "setAllocation", [
-        [tokenA, tokenB], // Token contract references (resolved to addresses by Ignition)
-        [20, 80],         // Percents
-    ], { from: deployer });
 
-    return { tokenA, tokenB, router, portfolio };
+    // Do NOT call setAllocation yet — users will do it themselves
+    return { USDC, USDT, WETH,WSOL,WBTC, router, portfolio };
 });

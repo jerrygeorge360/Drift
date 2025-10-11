@@ -9,7 +9,7 @@
     "strict": true,
     "skipLibCheck": true,
     "outDir": "dist",
-    "moduleResolution": "node",
+    "moduleResolution": "nodenext",
     "resolveJsonModule": true,
     "allowJs": true,
     "sourceMap": true
