@@ -1,7 +1,9 @@
 import express from "express";
-import errorHandler from "./middleware/errorHandler";
-import userRoute from "./routes/userRoute";
-import { requestLogger, errorLogger } from "./utils/logger";
+import errorHandler from "./middleware/errorHandler.js";
+import userRoute from "./routes/userRoute.js";
+import smartAccountRoute from "./routes/smartAccountRoute.js";
+import delegationRoute from "./routes/delegationRoute.js";
+import { requestLogger, errorLogger } from "./utils/logger.js";
 
 const app = express();
 
@@ -11,6 +13,8 @@ app.use(requestLogger);
 
 // Routes
 app.use('/api/users', userRoute);
+app.use('/api/smartAccounts', smartAccountRoute);
+app.use('/api/delegations', delegationRoute);
 
 // Error logging middleware (logs errors first)
 app.use(errorLogger);
