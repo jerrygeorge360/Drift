@@ -237,6 +237,25 @@ export async function getPortfolioAllocations(portfolioId: string) {
     });
 }
 
+// Delete a single token allocation from a portfolio
+export async function deletePortfolioAllocation(portfolioId: any, tokenId: any) {
+    return prisma.portfolioAllocation.deleteMany({
+        where: {
+            portfolioId,
+            tokenId,
+        },
+    });
+}
+
+// Delete all allocations for a portfolio
+export async function deleteAllPortfolioAllocations(portfolioId: any) {
+    return prisma.portfolioAllocation.deleteMany({
+        where: { portfolioId },
+    });
+}
+
+
+
 //
 // REBALANCE LOG
 //
