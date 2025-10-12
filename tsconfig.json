@@ -3,7 +3,7 @@
 {
   "compilerOptions": {
     "target": "es2020",         // allows async/await
-    "module": "esnext",         // allows top-level await
+    "module": "nodenext",         // allows top-level await
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,

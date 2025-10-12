@@ -1,5 +1,5 @@
 
-import {monadTestnet as chain} from "viem/chains";
+import {sepolia as chain} from "viem/chains";
 import { http, createPublicClient } from "viem";
 import { createBundlerClient } from "viem/account-abstraction"
 

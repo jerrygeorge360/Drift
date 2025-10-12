@@ -1,20 +1,36 @@
 import { Request, Response } from "express";
+import { SiweMessage, generateNonce } from "siwe";
 import jwt from "jsonwebtoken";
-import prisma from "../config/db";
-import bcrypt from "bcryptjs";
+import {findOrCreateUser, updateUserLastLogin} from "../utils/dbhelpers.js";
 
-export const login = async (req: Request, res: Response) => {
-    const { email, password } = req.body;
+export const getNonce = (_req: Request, res: Response) => {
+    const nonce = generateNonce();
+    res.json({ nonce });
+};
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+export const siweLogin = async (req: Request, res: Response) => {
+    try {
+        const { message, signature } = req.body;
+        if (!message || !signature) {
+            return res.status(400).json({ message: "Message and signature required" });
+        }
 
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(400).json({ message: "Invalid credentials" });
+        const siweMessage = new SiweMessage(message);
+        const { data } = await siweMessage.verify({ signature });
 
-    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET || "changeme", {
-        expiresIn: "1h",
-    });
+        const secret = process.env.JWT_SECRET;
+        if (!secret) throw new Error("JWT_SECRET not set");
 
-    res.json({ token });
+
+        const user = await findOrCreateUser(data.address);
+        await updateUserLastLogin(user.id);
+
+        // Issue JWT with wallet address
+        const token = jwt.sign({ address: user.walletAddress,userId: user.id }, secret, { expiresIn: "1h" });
+
+        res.json({ token});
+    } catch (error) {
+        console.error("SIWE login error:", error);
+        res.status(401).json({ message: "Invalid SIWE signature" });
+    }
 };

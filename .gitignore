@@ -12,3 +12,5 @@ yarn-error.log*
 /src/generated/prisma
 .env
 .idea/
+prisma
+dist

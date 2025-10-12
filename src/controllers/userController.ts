@@ -1,23 +1,31 @@
-import { Request, Response, NextFunction } from "express";
-import prisma from "../config/db.js";
+import {Request,Response,NextFunction} from "express";
+import {deleteUserById, getAllUsers, getUserById} from "../utils/dbhelpers.js";
 
-// GET /api/users
-export const getUsers = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const users = await prisma.user.findMany();
-        res.json(users);
-    } catch (err) {
-        next(err);
-    }
+
+
+
+// DELETE /users/:id
+export const deleteUserByIdController = async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.params.id;
+    if (!userId) return res.status(400).json({ message: "User ID is required" });
+
+    await deleteUserById(userId);
+    res.status(200).json({ message: "User deleted successfully" });
 };
 
-// POST /api/users
-export const createUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { name, email } = req.body;
-        const user = await prisma.user.create({ data: { name, email } });
-        res.status(201).json(user);
-    } catch (err) {
-        next(err);
-    }
+
+// GET /users/:id
+export const getUserByIdController = async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.params.id;
+    const user = await getUserById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
 };
+
+
+// GET /users
+export const listUsersController = async (_req: Request, res: Response, next: NextFunction) => {
+    const users = await getAllUsers();
+    res.json(users);
+};
+

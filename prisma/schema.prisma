@@ -6,7 +6,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  output   = " ./prisma/src/generated/prisma"
 }
 
 datasource db {
@@ -16,36 +16,113 @@ datasource db {
 
 
 model User {
-  id           String       @id @default(cuid())
-  address      String       @unique
-  createdAt    DateTime     @default(now())
-  rules        Rule[]
-  actions      Action[]
-  delegations  Delegation[]    // multiple bots possible in future
+  id            String         @id @default(uuid())
+  walletAddress String         @unique
+  smartAccounts SmartAccount[]  // One-to-many
+  lastLogin     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
-model Rule {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  allocations Json     // e.g., { USDT:0.5, ETH:0.3, OTHER:0.2 }
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
+model SmartAccount {
+  id            String     @id @default(uuid())
+  user          User       @relation(fields: [userId], references: [id])
+  userId        String
+  privateKey    String     // encrypted private key
+  address       String     @unique
+  portfolio     Portfolio? // One-to-one relation
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 }
 
 model Delegation {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  botAddress String
-  createdAt  DateTime @default(now())
+  id               String    @id @default(cuid())
+  smartAccountId   String
+  delegatorAddress String
+  delegateAddress  String
+  scope            String[]   // e.g. ["transfer", "rebalance"]
+  expiresAt        DateTime?  // optional expiration
+  revoked          Boolean   @default(false)
+  signature        String     // Signed delegation message (off-chain signature)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([smartAccountId])
+  @@index([delegateAddress])
 }
 
-model Action {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  txHash    String
-  reason    String
-  createdAt DateTime @default(now())
+
+model Portfolio {
+  id            String       @id @default(uuid())
+  smartAccount  SmartAccount @relation(fields: [smartAccountId], references: [id])
+  smartAccountId String      @unique
+  name          String
+  allocations   PortfolioAllocation[]
+  rebalanceLogs RebalanceLog[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Token {
+  id              String          @id @default(uuid())
+  symbol          String          @unique
+  name            String
+  address         String          @unique
+  decimals        Int
+  allocations     PortfolioAllocation[]
+  rebalanceLogsIn  RebalanceLog[] @relation("TokenIn")
+  rebalanceLogsOut RebalanceLog[] @relation("TokenOut")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model PortfolioAllocation {
+  id          String    @id @default(uuid())
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id])
+  portfolioId String
+  token       Token     @relation(fields: [tokenId], references: [id])
+  tokenId     String
+  percent     Float     // percentage allocation, e.g., 30.5 for 30.5%
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([portfolioId, tokenId])
+}
+
+model RebalanceLog {
+  id            String    @id @default(uuid())
+  portfolio     Portfolio @relation(fields: [portfolioId], references: [id])
+  portfolioId   String
+
+  tokenIn       Token     @relation("TokenIn", fields: [tokenInId], references: [id])
+  tokenInId     String
+
+  tokenOut      Token     @relation("TokenOut", fields: [tokenOutId], references: [id])
+  tokenOutId    String
+
+  amountIn      Float     // Store in base units or converted to decimals
+  amountOut     Float
+  reason        String
+  executor      String    // Could be bot or user address
+  createdAt     DateTime  @default(now())
+}
+
+model ContractConfig {
+  id               String   @id @default(uuid())
+  contractAddress  String   @unique
+  network          String
+  owner            String
+  paused           Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Bot {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  lastRunAt    DateTime?
+  status       String   // e.g., 'active', 'paused'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

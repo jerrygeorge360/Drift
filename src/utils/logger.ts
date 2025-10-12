@@ -1,16 +1,27 @@
 import { Request, Response, NextFunction } from "express";
-import { Prisma } from "@prisma/client";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+import {
+    PrismaClientKnownRequestError,
+    PrismaClientValidationError,
+    PrismaClientRustPanicError,
+    PrismaClientInitializationError,
+    PrismaClientUnknownRequestError,
+} from "@prisma/client/runtime/library";
+
+// ------------------ ESM Compatibility ------------------ //
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ------------------ Setup ------------------ //
 const logDir = path.join(__dirname, "..", "logs");
 if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir);
+    fs.mkdirSync(logDir, { recursive: true });
 }
 
 function getLogFilePath() {
-    const today = new Date().toISOString().split("T")[0]; // "2025-10-01"
+    const today = new Date().toISOString().split("T")[0]; // e.g. "2025-10-11"
     return path.join(logDir, `app-${today}.log`);
 }
 
@@ -68,19 +79,18 @@ export function asyncHandler(
 // ------------------ Prisma Error Logger ------------------ //
 export function logPrismaError(error: any) {
     const now = new Date().toISOString();
-
     let errorMessage = `[${now}] PRISMA ERROR - `;
 
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        errorMessage += `Code ${error.code} | ${error.message}\n`;
-    } else if (error instanceof Prisma.PrismaClientValidationError) {
-        errorMessage += `Validation Error | ${error.message}\n`;
-    } else if (error instanceof Prisma.PrismaClientRustPanicError) {
-        errorMessage += `Rust Panic | ${error.message}\n`;
-    } else if (error instanceof Prisma.PrismaClientInitializationError) {
-        errorMessage += `Initialization Error | ${error.message}\n`;
-    } else if (error instanceof Prisma.PrismaClientUnknownRequestError) {
-        errorMessage += `Unknown Request Error | ${error.message}\n`;
+    if (error instanceof PrismaClientKnownRequestError) {
+        errorMessage += `Known Request Error (Code ${error.code}): ${error.message}\n`;
+    } else if (error instanceof PrismaClientValidationError) {
+        errorMessage += `Validation Error: ${error.message}\n`;
+    } else if (error instanceof PrismaClientRustPanicError) {
+        errorMessage += `Rust Panic: ${error.message}\n`;
+    } else if (error instanceof PrismaClientInitializationError) {
+        errorMessage += `Initialization Error: ${error.message}\n`;
+    } else if (error instanceof PrismaClientUnknownRequestError) {
+        errorMessage += `Unknown Request Error: ${error.message}\n`;
     } else {
         errorMessage += `${error.message || error}\n`;
     }

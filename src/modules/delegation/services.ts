@@ -7,7 +7,7 @@ import {bundlerClient} from "../../controllers/clients.js";
 // create delegation
 export const createSignedDelegation = async (delegatorSmartAccount:MetaMaskSmartAccount,delegateSmartAccount:MetaMaskSmartAccount,scope: any)=>{
     const delegation= createDelegation({
-        to: delegateSmartAccount.address, // This example uses a delegate smart account
+        to: delegateSmartAccount.address,
         from: delegatorSmartAccount.address,
         environment: delegatorSmartAccount.environment,
         scope: scope,

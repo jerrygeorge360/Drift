@@ -5,15 +5,21 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
     "delegation": "node --loader ts-node/esm src/delegation/app.ts",
     "blockchain": "node --loader ts-node/esm src/config/blockchain.ts",
-    "migrate": "npx prisma migrate dev",
-    "generate": "npx prisma generate"
+    "migrate": "npx prisma migrate dev --name",
+    "generate": "npx prisma generate",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "nodemon --watch src --exec ts-node src/server.ts",
+    "clean": "rm -rf dist",
+    "serve": "npm run clean && npm run build && npm start"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/express-session": "^1.18.2",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.6.1",
     "hardhat": "^3.0.6",
@@ -27,8 +33,12 @@
     "@metamask/delegation-toolkit": "^0.13.0",
     "@prisma/client": "^6.16.3",
     "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "express-session": "^1.18.2",
     "jsonwebtoken": "^9.0.2",
+    "siwe": "^3.0.0",
     "viem": "^2.37.9"
   }
 }

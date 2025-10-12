@@ -1,27 +1,76 @@
-import { Request, Response } from "express";
+import {Request, Response} from "express";
 import {MetaMaskSmartAccount} from "@metamask/delegation-toolkit"
-import {createSignedDelegation as delegationService,redeemDelegation as redeemDelegation} from "../modules/delegation/services.js";
+import {
+    createSignedDelegation as delegationService
+} from "../modules/delegation/services.js";
 
-export const createDelegationController = async (req: Request, res: Response) => {
+import {reconstructSmartAccount} from "../utils/delegationhelpers.js";
+import {createDelegationdb, findSmartAccountById, getUserSmartAccounts, revokeDelegation} from "../utils/dbhelpers.js";
+
+export interface AuthRequest extends Request {
+    user?: { id: string; address: string };
+}
+
+export const createDelegationController = async (req: AuthRequest, res: Response) => {
     try {
         const data = req.body;
 
 
-        const delegatorSmartAccount: MetaMaskSmartAccount = data.delegatorSmartAccount;
-        const delegateSmartAccount: MetaMaskSmartAccount = data.delegateSmartAccount;
+        if (!req.user?.address || !req.user?.id) {
+            return res.status(401).json({ message: "Unauthorized: User info missing" });
+        }
+        const userId = req.user?.id;
+        const smartAccountId = req.params.smartAccountId;
+        // Get all smart accounts of user
+        const userSmartAccounts = await getUserSmartAccounts(userId);
+
+        // Check if smartAccountId is among user's smart accounts
+        const smartAccounts = userSmartAccounts.find((sa: { id: string; }) => sa.id === smartAccountId);
+
+        if (!smartAccounts) {
+            return res.status(404).json({ message: "Smart account not found or not owned by you" });
+        }
+
+        const smartAccount = await findSmartAccountById(smartAccountId)
+
+        // collect user ids and query for the keys
+        const delegatorPrivateKey:`0x${string}` = smartAccount.privateKey;
+        const delegatePrivateKey:`0x${string}`= '0xd'// bot privateKey
+
+        const delegatorSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatorPrivateKey)
+        const delegateSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatePrivateKey)
         const scope = data.scope || {};
 
+
         // Create and sign the delegation
-        const signedDelegation = await delegationService(
+        const signature = await delegationService(
             delegatorSmartAccount,
             delegateSmartAccount,
             scope
         );
+        if (!smartAccountId || !delegatorPrivateKey || !delegatePrivateKey || !scope || !Array.isArray(scope) || !signature) {
+            return res.status(400).json({ message: "Missing or invalid fields" });
+        }
 
-        // Send success response
+        const delegation = await createDelegationdb({
+            smartAccountId,
+            delegatorSmartAccount,
+            delegateSmartAccount,
+            scope,
+            signature,
+        })
+
         return res.status(200).json({
             message: "Delegation created successfully",
-            signedDelegation,
+            delegation: {
+                id: delegation.id,
+                smartAccountId: delegation.smartAccountId,
+                delegatorAddress: delegation.delegatorAddress,
+                delegateAddress: delegation.delegateAddress,
+                scope: delegation.scope,
+                createdAt: delegation.createdAt,
+                updatedAt: delegation.updatedAt,
+            },
         });
     } catch (error: any) {
         console.error("Error creating delegation:", error);
@@ -33,26 +82,36 @@ export const createDelegationController = async (req: Request, res: Response) =>
 };
 
 
-export const redeemDelegationController = async (req: Request, res: Response) => {
+export const revokeDelegationController = async (req: AuthRequest, res: Response) => {
     try {
-        const data = req.body;
 
-        const signedDelegation = data.signedDelegation;
-        const delegateSmartAccount: MetaMaskSmartAccount = data.delegateSmartAccount;
+        if (!req.user?.address || !req.user?.id) {
+            return res.status(401).json({ message: "Unauthorized: User info missing" });
+        }
+        const userId = req.user?.id;
+        const smartAccountId = req.params.smartAccountId;
+        // Get all smart accounts of user
+        const userSmartAccounts = await getUserSmartAccounts(userId);
 
-        // Redeem the signed delegation
-        const redemptionResult = await redeemDelegation(signedDelegation, delegateSmartAccount);
+        // Check if smartAccountId is among user's smart accounts
+        const smartAccounts = userSmartAccounts.find((sa: { id: string; }) => sa.id === smartAccountId);
 
-        // Send success response
+        if (!smartAccounts) {
+            return res.status(404).json({ message: "Smart account not found or not owned by you" });
+        }
+
+        await revokeDelegation(smartAccountId);
+
         return res.status(200).json({
-            message: "Delegation redeemed successfully",
-            result: redemptionResult,
+            message: "Delegation revoked successfully",
         });
-    } catch (error: any) {
-        console.error("Error redeeming delegation:", error);
+
+    }catch (error) {
+        console.error("Error revoking delegation:", error);
+        // @ts-ignore
         return res.status(500).json({
-            message: "Failed to redeem delegation",
-            error: error.message || error,
+            message: "Failed to revoke delegation"
         });
     }
-};
+
+}
