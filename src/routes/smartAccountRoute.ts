@@ -8,10 +8,10 @@ import {getUserSmartAccounts} from "../utils/dbhelpers.js";
 const smartAccountRouter = Router();
 
 
-smartAccountRouter.post('/smart-accounts', createSmartAccount);
-smartAccountRouter.delete('/smart-accounts/:id', deleteSmartAccount);
-smartAccountRouter.get('/smart-accounts', getUserSmartAccountList);
-smartAccountRouter.get('/smart-accounts/:id', getSmartAccountById);
+smartAccountRouter.post('/', createSmartAccount);
+smartAccountRouter.delete('/:id', deleteSmartAccount);
+smartAccountRouter.get('/', getUserSmartAccountList);
+smartAccountRouter.get('/:id', getSmartAccountById);
 
 
 export default smartAccountRouter;

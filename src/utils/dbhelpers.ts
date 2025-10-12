@@ -205,6 +205,16 @@ export async function updatePortfolioName(smartAccountId: string, newName: strin
     });
 }
 
+// create portfolio(initialization)
+export async function createPortfolio(smartAccountId: string, name: string) {
+    return prisma.portfolio.create({
+        data: {
+            smartAccountId,
+            name,
+        },
+    });
+}
+
 //
 // PORTFOLIO ALLOCATION
 //

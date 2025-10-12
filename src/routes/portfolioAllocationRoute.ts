@@ -20,4 +20,5 @@ portfolioAllocationRouter.delete("/:portfolioId/:tokenId", deleteSingleAllocatio
 
 // DELETE all allocations for a portfolio
 portfolioAllocationRouter.delete("/:portfolioId", deleteAllAllocations);
+
 export default portfolioAllocationRouter;

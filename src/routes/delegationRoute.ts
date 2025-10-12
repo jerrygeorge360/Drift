@@ -9,10 +9,10 @@ import {userRedeemWebhook} from "../controllers/webhookController.js";
 const delegationRouter = Router();
 
 // Create a new delegation
-delegationRouter.post('/delegations', createDelegationController);
+delegationRouter.post('/', createDelegationController);
 
 // Revoke an existing delegation
-delegationRouter.put('/delegations/:delegationId/revoke', revokeDelegationController);
+delegationRouter.put('/:delegationId/revoke', revokeDelegationController);
 
 // Webhook to handle user-specific delegation redeems (triggered externally)
 delegationRouter.post('/webhooks/delegations/:smartAccountID/redeem', userRedeemWebhook);

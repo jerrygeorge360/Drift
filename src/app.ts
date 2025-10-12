@@ -10,6 +10,8 @@ import authMiddleware from "./middleware/authMiddleware.js";
 import {getNonce, siweLogin} from "./controllers/authController.js";
 import userRouter from "./routes/userRoute.js";
 import tokenRouter from "./routes/tokenRoute.js";
+import portfolioAllocationRouter from "./routes/portfolioAllocationRoute.js";
+import portfolioRouter from "./routes/portfolioRoute.js";
 
 const app = express();
 
@@ -37,6 +39,8 @@ app.use('/api/users',authMiddleware,userRouter);
 app.use('/api/smartAccounts',authMiddleware,smartAccountRoute);
 app.use('/api/delegations',authMiddleware,delegationRoute);
 app.use('/api/tokens',tokenRouter);
+app.use('/api/allocations',portfolioAllocationRouter);
+app.use("/api/portfolio", portfolioRouter);
 
 
 
