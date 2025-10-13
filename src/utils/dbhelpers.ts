@@ -1,5 +1,6 @@
 import prisma from "../config/db.js";
 import {SmartAccount} from "viem/account-abstraction";
+import {decryptPrivateKey, encryptPrivateKey} from "./encryption.js";
 
 //
 // USER
@@ -362,4 +363,83 @@ export async function createOrUpdateContractConfig(data: {
             paused: data.paused ?? false,
         },
     });
+}
+
+export async function getAllContractConfigs(network?: string) {
+    return prisma.contractConfig.findMany({
+        where: network ? { network } : undefined,
+        orderBy: { createdAt: "desc" },
+    });
+}
+export async function updateContractPauseStatus(contractAddress: string, paused: boolean) {
+    return prisma.contractConfig.update({
+        where: { contractAddress },
+        data: { paused },
+    });
+}
+export async function deleteContractConfig(contractAddress: string) {
+    return prisma.contractConfig.delete({
+        where: { contractAddress },
+    });
+}
+
+
+//
+// BOT
+//
+
+export async function createBot(data: {
+    name: string;
+    description?: string;
+    privateKey: string;
+    status?: string;
+}) {
+    const encryptedKey = encryptPrivateKey(data.privateKey);
+    return prisma.bot.create({
+        data: {
+            name: data.name,
+            description: data.description,
+            encryptedKey,
+            status: data.status || "active",
+        },
+    });
+}
+
+// Get all bots
+export async function getAllBots() {
+    return prisma.bot.findMany({
+        orderBy: { createdAt: "desc" },
+    });
+}
+
+// Get bot by ID (decrypted private key optional)
+export async function getBotById(botId: string, withPrivateKey = false) {
+    const bot = await prisma.bot.findUnique({ where: { id: botId } });
+    if (!bot) return null;
+
+    if (withPrivateKey && bot.encryptedKey) {
+        const decrypted = decryptPrivateKey(bot.encryptedKey);
+        return { ...bot, privateKey: decrypted };
+    }
+
+    return bot;
+}
+
+//  Update bot info (optional private key update)
+export async function updateBot(botId: string, data: Partial<{ name: string; description: string; privateKey: string; status: string; }>) {
+    const updateData: any = { ...data };
+    if (data.privateKey) {
+        updateData.encryptedKey = encryptPrivateKey(data.privateKey);
+        delete updateData.privateKey;
+    }
+
+    return prisma.bot.update({
+        where: { id: botId },
+        data: updateData,
+    });
+}
+
+// Delete bot
+export async function deleteBot(botId: string) {
+    return prisma.bot.delete({ where: { id: botId } });
 }

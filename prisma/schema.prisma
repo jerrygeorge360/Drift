@@ -121,6 +121,7 @@ model Bot {
   id           String   @id @default(uuid())
   name         String
   description  String?
+  encryptedKey String?  // Encrypted private key (AES-256)
   lastRunAt    DateTime?
   status       String   // e.g., 'active', 'paused'
   createdAt    DateTime @default(now())
