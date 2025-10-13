@@ -6,6 +6,7 @@ import {
     updateBot,
     deleteBot,
 } from "../utils/dbhelpers.js";
+import {runAIAgent} from "../modules/bot/bot.agent.js";
 
 // Create a new bot
 export async function createBotController(req: Request, res: Response) {
@@ -67,6 +68,19 @@ export async function deleteBotController(req: Request, res: Response) {
         const { id } = req.params;
         await deleteBot(id);
         res.status(200).json({ message: "Bot deleted successfully" });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+}
+
+
+
+export async function runAgentController(req: Request, res: Response) {
+    const { botName, smartAccountId } = req.body;
+
+    try {
+        const result = await runAIAgent(botName, smartAccountId);
+        res.status(200).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

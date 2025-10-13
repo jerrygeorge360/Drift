@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import prisma from "../config/db.js";
 
 export interface AuthRequest extends Request {
-    user?: { id: string; address: string };
+    user?: { id: string; address: string; role: string };
 }
 
 const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -19,17 +19,18 @@ const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunctio
 
         const decoded = jwt.verify(token, secret) as { address: string; userId: string; iat: number; exp: number };
 
-        // Verify user exists in DB
+        // Find the user in DB
         const user = await prisma.user.findUnique({
             where: { id: decoded.userId },
+            select: { id: true, walletAddress: true, role: true },
         });
-        if (!user) {
-            return res.status(401).json({ message: "User not found" });
-        }
+
+        if (!user) return res.status(401).json({ message: "User not found" });
 
         req.user = {
             id: user.id,
             address: user.walletAddress,
+            role: user.role,
         };
 
         next();
@@ -40,3 +41,14 @@ const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunctio
 };
 
 export default authMiddleware;
+
+
+export const requireRole = (allowedRoles: string[]) => {
+    return (req: AuthRequest, res: Response, next: NextFunction) => {
+        if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+        if (!allowedRoles.includes(req.user.role)) {
+            return res.status(403).json({ message: "Forbidden: insufficient privileges" });
+        }
+        next();
+    };
+};

@@ -19,6 +19,7 @@ model User {
   id            String         @id @default(uuid())
   walletAddress String         @unique
   smartAccounts SmartAccount[]  // One-to-many
+  role          String         @default("user")
   lastLogin     DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -122,6 +123,7 @@ model Bot {
   name         String
   description  String?
   encryptedKey String?  // Encrypted private key (AES-256)
+  role         String   @default("bot")
   lastRunAt    DateTime?
   status       String   // e.g., 'active', 'paused'
   createdAt    DateTime @default(now())

@@ -3,8 +3,7 @@ import errorHandler from "./middleware/errorHandler.js";
 import smartAccountRoute from "./routes/smartAccountRoute.js";
 import delegationRoute from "./routes/delegationRoute.js";
 import { requestLogger, errorLogger } from "./utils/logger.js";
-import authMiddleware from "./middleware/authMiddleware.js";
-import {getNonce, siweLogin} from "./controllers/authController.js";
+import authMiddleware, {requireRole} from "./middleware/authMiddleware.js";
 import userRouter from "./routes/userRoute.js";
 import tokenRouter from "./routes/tokenRoute.js";
 import portfolioAllocationRouter from "./routes/portfolioAllocationRoute.js";
@@ -30,13 +29,13 @@ app.use(authMiddleware);
 app.use('/api/login', loginRouter);
 app.use('/api/users',authMiddleware,userRouter);
 app.use('/api/smartAccounts',authMiddleware,smartAccountRoute);
-app.use('/api/delegations',authMiddleware,delegationRoute);
+app.use('/api/delegations',delegationRoute);
 app.use('/api/tokens',tokenRouter);
-app.use('/api/allocations',portfolioAllocationRouter);
-app.use("/api/portfolio", portfolioRouter);
+app.use('/api/allocations',authMiddleware,requireRole(["user"]),portfolioAllocationRouter);
+app.use("/api/portfolio",authMiddleware,requireRole(["user"]), portfolioRouter);
 app.use("/api/rebalance", rebalanceRouter);
-app.use("/api/contract",contractConfigRouter);
-app.use('/api/bot',botRouter);
+app.use("/api/contract",authMiddleware,requireRole(["admin"]),contractConfigRouter);
+app.use('/api/bot',authMiddleware,requireRole(["admin"]),botRouter);
 
 
 
