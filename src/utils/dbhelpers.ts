@@ -439,6 +439,16 @@ export async function updateBot(botId: string, data: Partial<{ name: string; des
     });
 }
 
+export async function getBotByName(name: string, withPrivateKey = false) {
+    const bot = await prisma.bot.findUnique({ where: { name: name } });
+    if (!bot) return null;
+    if (withPrivateKey && bot.encryptedKey){
+        const decrypted = decryptPrivateKey(bot.encryptedKey);
+        return { ...bot, privateKey: decrypted }; }
+    return bot;
+}
+
+
 // Delete bot
 export async function deleteBot(botId: string) {
     return prisma.bot.delete({ where: { id: botId } });

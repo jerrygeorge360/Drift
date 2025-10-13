@@ -1,8 +1,19 @@
 import {reconstructSmartAccount} from "../../utils/delegationhelpers.js";
 import {redeemDelegation} from "../delegation/services.js";
-import {getDelegationById} from "../../utils/dbhelpers.js";
+import {getBotByName, getDelegationById} from "../../utils/dbhelpers.js";
 
-export async function redeemDelegationService(smartAccountID: string) {
+export type RebalanceParams = {
+    botAddress: string;
+    tokenIn: string;
+    tokenOut: string;
+    amountIn: bigint;
+    amountOutMin: bigint;
+    swapPath: string[];
+    reason: string;
+}
+
+
+export async function redeemDelegationService(smartAccountID: string,reBalance:RebalanceParams) {
     if (!smartAccountID) {
         throw new Error("Smart account id is required");
     }
@@ -22,9 +33,9 @@ export async function redeemDelegationService(smartAccountID: string) {
     }
 
     const signedDelegation = delegationRecord.signedSignature;
-
+    const bot = await getBotByName('alpha',true);
     // get this from the bot database
-    const delegatePrivateKey: `0x${string}` = process.env.BOT_PRIVATE_KEY as any;
+    const delegatePrivateKey: `0x${string}` = bot.privateKey;
     if (!delegatePrivateKey) {
         throw new Error("BOT_PRIVATE_KEY environment variable is missing");
     }
@@ -32,5 +43,5 @@ export async function redeemDelegationService(smartAccountID: string) {
     const delegateSmartAccount = await reconstructSmartAccount(delegatePrivateKey);
 
     // Redeem the delegation using the bot's smart account and stored signed delegation
-    return await redeemDelegation(signedDelegation, delegateSmartAccount);
+    return await redeemDelegation(signedDelegation, delegateSmartAccount,delegateSmartAccount.address,reBalance);
 }

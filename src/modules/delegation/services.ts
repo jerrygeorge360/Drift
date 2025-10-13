@@ -1,8 +1,9 @@
 import {createDelegation, createExecution, ExecutionMode, MetaMaskSmartAccount} from "@metamask/delegation-toolkit";
 import {DelegationManager} from "@metamask/delegation-toolkit/contracts"
-import {zeroAddress} from "viem"
+import {encodeFunctionData} from "viem"
 import {bundlerClient} from "../../controllers/clients.js";
-
+import smartPortfolio from "../../contracts/abi/SmartPortfolio.json" with { type: 'json' };
+import {RebalanceParams} from "../bot/bot.delegation.js";
 
 // create delegation
 export const createSignedDelegation = async (delegatorSmartAccount:MetaMaskSmartAccount,delegateSmartAccount:MetaMaskSmartAccount,scope: any)=>{
@@ -25,17 +26,38 @@ export const createSignedDelegation = async (delegatorSmartAccount:MetaMaskSmart
 
 
 // redeem the delegation
-export const redeemDelegation = async (signedDelegation:any,delegateSmartAccount:MetaMaskSmartAccount)=>{
-
+export const redeemDelegation = async (signedDelegation:any,delegateSmartAccount:MetaMaskSmartAccount,smartPortfolioAddress:`0x${string}`,  rebalanceParams:RebalanceParams)=>{
+try {
     const delegations = [signedDelegation]
 
-    const executions = createExecution({ target: zeroAddress })
+    // Encode the executeRebalance function call
+    const rebalanceCalldata = encodeFunctionData({
+        abi: smartPortfolio.abi,
+        functionName: "executeRebalance",
+        args: [
+            rebalanceParams.botAddress,
+            rebalanceParams.tokenIn,
+            rebalanceParams.tokenOut,
+            rebalanceParams.amountIn,
+            rebalanceParams.amountOutMin,
+            rebalanceParams.swapPath,
+            rebalanceParams.reason
+        ]
+    });
+
+    // Create execution targeting the SmartPortfolio contract
+    const executions = createExecution({
+        target: smartPortfolioAddress,
+        value: 0n,
+        callData: rebalanceCalldata
+    });
 
     const redeemDelegationCalldata = DelegationManager.encode.redeemDelegations({
         delegations: [delegations],
         modes: [ExecutionMode.SingleDefault],
         executions: [[executions]],
     })
+
 
     return await bundlerClient.sendUserOperation({
         account: delegateSmartAccount,
@@ -45,7 +67,12 @@ export const redeemDelegation = async (signedDelegation:any,delegateSmartAccount
                 data: redeemDelegationCalldata,
             },
         ],
-        maxFeePerGas: 1n,
-        maxPriorityFeePerGas: 1n,
+
     });
+}
+catch (error) {
+    console.error("Failed to redeem delegation:", error);
+    throw error;
+}
+
 }
