@@ -50,7 +50,7 @@ export async function getAllConfigs(req: Request, res: Response) {
     }
 }
 
-// ✅ Toggle pause state
+//  Toggle pause state
 export async function togglePause(req: Request, res: Response) {
     try {
         const { address } = req.params;

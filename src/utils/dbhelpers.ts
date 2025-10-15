@@ -272,21 +272,41 @@ export async function deleteAllPortfolioAllocations(portfolioId: any) {
 //
 
 // Log a rebalance event
-export async function createRebalanceLog(data: {
-    portfolioId: string;
-    tokenInId: string;
-    tokenOutId: string;
-    amountIn: number;
-    amountOut: number;
-    reason: string;
-    executor: string;
-}) {
+export async function createRebalanceLog(
+    data:
+        | {
+        portfolioId: string;
+        tokenInId: string;
+        tokenOutId: string;
+        amountIn: number;
+        amountOut: number;
+        reason: string;
+        executor: string;
+    }
+        | {
+        portfolioId: string;
+        tokenInId: string;
+        tokenOutId: string;
+        amountIn: number;
+        amountOut: number;
+        reason: string;
+        executor: string;
+    }[]
+) {
+    // 🧩 If array → bulk insert
+    if (Array.isArray(data)) {
+        return prisma.rebalanceLog.createMany({
+            data,
+            skipDuplicates: true, // optional — avoids duplicates if IDs overlap
+        });
+    }
+
+    // 🧩 Otherwise → single insert
     return prisma.rebalanceLog.create({
-        data: {
-            ...data,
-        },
+        data,
     });
 }
+
 
 // Get rebalance logs for a portfolio
 export async function getRebalanceLogs(portfolioId: string, limit = 50) {
