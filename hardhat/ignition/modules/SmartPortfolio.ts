@@ -2,6 +2,7 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
 export default buildModule("SmartPortfolioModule", (m) => {
     const deployer = m.getAccount(0); // Your deployer account
+    console.log(deployer);
 
     // Reference existing contracts with m.contractAt()
     const USDC = m.contractAt("MockToken", "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea", { id: "USDC" });

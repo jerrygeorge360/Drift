@@ -50,6 +50,8 @@ const config: HardhatUserConfig = {
             url: configVariable("MONAD_TESTNET_RPC_URL"), // You’ll define this in your .env
             accounts: [configVariable("MONAD_TESTNET_PRIVATE_KEY")],
             chainId: 10143,
+            gas: 30000000, // Set explicit gas limit (30M)
+            gasPrice: 20000000000,
         },
 
     },

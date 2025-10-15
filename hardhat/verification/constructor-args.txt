@@ -1,0 +1,12 @@
+ABI-Encoded Constructor Arguments
+═══════════════════════════════════════
+
+Without 0x prefix (use this for verification):
+000000000000000000000000fb8e1c3b833f9e67a71c859a132cf783b645e436000000000000000000000000de9c18df0c7bef1ea3cfb08d8701daa2b92bec5b
+
+With 0x prefix:
+0x000000000000000000000000fb8e1c3b833f9e67a71c859a132cf783b645e436000000000000000000000000de9c18df0c7bef1ea3cfb08d8701daa2b92bec5b
+
+Decoded Arguments:
+Router: 0xfb8e1c3b833f9e67a71c859a132cf783b645e436
+Owner:  0xde9c18df0C7bef1ea3CFB08D8701daA2b92Bec5b
