@@ -5,10 +5,15 @@ import { RebalanceService } from "./bot.rebalance.service.js";
 import { getBotById,updateBot } from "../../utils/dbhelpers.js";
 
 interface MarketData {
-    prices?: Record<string, number>;
-    volatility?: Record<string, number>;
-    timestamp?: string;
+    [id: string]: {
+        usd: number;
+        usd_market_cap: number;
+        usd_24h_vol: number;
+        usd_24h_change: number;
+        last_updated_at: number;
+    };
 }
+
 
 type AgentMode = "standard" | "smart";
 
@@ -38,12 +43,12 @@ export async function runAIAgent(
 
         // Compute current weights
         const totalValue = allocations.reduce((acc: number, a: any) => {
-            const price = marketData?.prices?.[a.token.symbol] ?? 1;
+            const price = marketData?.[a.token.id]?.usd ?? 1;
             return acc + price * a.percent;
         }, 0);
 
         const currentWeights = allocations.map((a: any) => {
-            const price = marketData?.prices?.[a.token.symbol] ?? 1;
+            const price = marketData?.[a.token.id]?.usd ?? 1;
             const currentPercent = (price * a.percent) / totalValue * 100;
             return {
                 token: a.token.symbol,
@@ -78,24 +83,31 @@ ${
 
 Market Summary:
 ${
-            marketData?.prices
-                ? Object.entries(marketData.prices)
-                    .map(([symbol, price]) => `• ${symbol}: $${price}`)
+            marketData
+                ? Object.entries(marketData)
+                    .map(
+                        ([id, data]) =>
+                            `• ${id.toUpperCase()}: $${data.usd.toFixed(2)}`
+                    )
                     .join("\n")
                 : "No market data provided"
         }
 
-Volatility:
+Volatility (24h Change):
 ${
-            marketData?.volatility
-                ? Object.entries(marketData.volatility)
-                    .map(([symbol, vol]) => `${symbol}: ${vol.toFixed(2)}%`)
+            marketData
+                ? Object.entries(marketData)
+                    .map(
+                        ([id, data]) =>
+                            `• ${id.toUpperCase()}: ${data.usd_24h_change.toFixed(2)}%`
+                    )
                     .join("\n")
                 : "No volatility data provided"
         }
 
 Agent Mode: ${agentMode}
-Data Timestamp: ${marketData?.timestamp || "N/A"}
+Data Timestamp: ${marketData ? new Date(Object.values(marketData)[0].last_updated_at * 1000).toISOString() : "N/A"}
+
 `;
 
         // 4️⃣ LLM Decision

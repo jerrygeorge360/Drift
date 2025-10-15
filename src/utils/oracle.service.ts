@@ -62,10 +62,16 @@ let stableIntervalId: NodeJS.Timeout | null = null;
  */
 async function fetchPrices(tokenIds: readonly string[]): Promise<TokenPrices | null> {
     const ids = tokenIds.join(',');
-    const url = `${BASE_URL}?ids=${ids}&vs_currencies=usd&x_cg_demo_api_key=${API_KEY}`;
+    const url = `${BASE_URL}?ids=${ids}&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true&include_last_updated_at=true&precision=2`;
 
     try {
-        const response = await fetch(url);
+
+        const response = await fetch(url, {
+            headers: {
+                'x-cg-pro-api-key': API_KEY
+            } as Record<string, string>
+        });
+
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);

@@ -36,9 +36,13 @@ export async function llmDecisionEngine(botName: string, context: string): Promi
           {
             "action": "delegate" | "redeem" | "rebalance" | "analyze",
             "reason": "Explain why this decision is made",
-            "tokenInSymbol": "USDC",
-            "tokenOutSymbol": "ETH",
-            "percentChange": 25
+            "adjustments": [
+            {
+              "tokenInId": "string",
+              "tokenOutId": "string",
+              "percent": number
+            }
+            ]
           }`,
                 },
                 {
