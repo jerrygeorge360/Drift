@@ -12,6 +12,7 @@ import rebalanceRouter from "./routes/rebalanceLogsRoute.js";
 import contractConfigRouter from "./routes/contractConfigRoute.js";
 import botRouter from "./routes/botRoute.js";
 import loginRouter from "./routes/loginRoute.js";
+import oracleRouter from "./routes/oracleRoute.js";
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.use("/api/portfolio",authMiddleware,requireRole(["user"]), portfolioRouter);
 app.use("/api/rebalance", rebalanceRouter);
 app.use("/api/contract",authMiddleware,requireRole(["admin"]),contractConfigRouter);
 app.use('/api/bot',authMiddleware,requireRole(["admin"]),botRouter);
+app.use('/api/admin/price-polling',authMiddleware,requireRole(['admin']), oracleRouter);
 
 
 
