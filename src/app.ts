@@ -14,6 +14,7 @@ import botRouter from "./routes/botRoute.js";
 import loginRouter from "./routes/loginRoute.js";
 import oracleRouter from "./routes/oracleRoute.js";
 import blockchainRouter from "./routes/blockchainRoute.js";
+import {adminJs, adminRouter} from "./admin/dashboard.js";
 
 const app = express();
 
@@ -23,6 +24,11 @@ app.use(express.json());
 app.use(requestLogger);
 app.use(authMiddleware);
 
+app.use(
+    adminJs.options.rootPath,
+    requireRole(["admin"]),
+    adminRouter
+);
 // Routes
 
 

@@ -34,6 +34,7 @@ export async function redeemDelegationService(smartAccountID: string,reBalance:R
 
     const signedDelegation = delegationRecord.signedSignature;
     const bot = await getBotByName('alpha',true);
+    if (!bot || !bot.privateKey) throw new Error('Bot not found or missing key');
     // get this from the bot database
     const delegatePrivateKey: `0x${string}` = bot.privateKey;
     if (!delegatePrivateKey) {
