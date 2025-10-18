@@ -2,7 +2,7 @@ import Groq from "groq-sdk";
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
 export async function llmDecisionEngine(botName: string, context: string): Promise<string> {
-    console.log(`🧠 [${botName}] Thinking...`);
+    console.log(`[${botName}] Thinking...`);
 
     const completion = await groq.chat.completions.create({
         model: "llama3-70b-8192",

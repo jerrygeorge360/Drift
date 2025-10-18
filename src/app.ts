@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import errorHandler from "./middleware/errorHandler.js";
 import smartAccountRoute from "./routes/smartAccountRoute.js";
 import delegationRoute from "./routes/delegationRoute.js";
@@ -13,22 +14,30 @@ import contractConfigRouter from "./routes/contractConfigRoute.js";
 import botRouter from "./routes/botRoute.js";
 import loginRouter from "./routes/loginRoute.js";
 import oracleRouter from "./routes/oracleRoute.js";
-import blockchainRouter from "./routes/blockchainRoute.js";
-import {adminJs, adminRouter} from "./admin/dashboard.js";
+// import blockchainRouter from "./routes/blockchainRoute.js";
+// import {adminJs, adminRouter} from "./admin/dashboard.js";
 
 const app = express();
+
+app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Middleware
 
 app.use(express.json());
 app.use(requestLogger);
-app.use(authMiddleware);
+// app.use(authMiddleware);
 
-app.use(
-    adminJs.options.rootPath,
-    requireRole(["admin"]),
-    adminRouter
-);
+// app.use(
+    // adminJs.options.rootPath,
+    // requireRole(["admin"]),
+    // adminRouter
+// );
+
 // Routes
 
 
@@ -45,7 +54,7 @@ app.use("/api/rebalance", rebalanceRouter);
 app.use("/api/contract",authMiddleware,requireRole(["admin"]),contractConfigRouter);
 app.use('/api/bot',authMiddleware,requireRole(["admin"]),botRouter);
 app.use('/api/admin/price-polling',authMiddleware,requireRole(['admin']), oracleRouter);
-app.use('/api/blockchain',blockchainRouter);
+// app.use('/api/blockchain',blockchainRouter);
 
 
 // Error logging middleware (logs errors first)

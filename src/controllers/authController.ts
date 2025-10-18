@@ -18,6 +18,7 @@ export const siweLogin = async (req: Request, res: Response) => {
         const siweMessage = new SiweMessage(message);
         const { data } = await siweMessage.verify({ signature });
 
+
         const secret = process.env.JWT_SECRET;
         if (!secret) throw new Error("JWT_SECRET not set");
 

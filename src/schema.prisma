@@ -6,7 +6,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = " ./prisma/src/generated/prisma"
 }
 
 datasource db {
@@ -54,15 +53,16 @@ model Delegation {
 
 
 model Portfolio {
-  id            String       @id @default(uuid())
-  smartAccount  SmartAccount @relation(fields: [smartAccountId], references: [id])
-  smartAccountId String      @unique
-  name          String
-  allocations   PortfolioAllocation[]
-  rebalanceLogs RebalanceLog[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id             String       @id @default(uuid())
+  smartAccount   SmartAccount @relation(fields: [smartAccountId], references: [id], onDelete: Cascade)
+  smartAccountId String       @unique
+  name           String
+  allocations    PortfolioAllocation[]
+  rebalanceLogs  RebalanceLog[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
+
 
 model Token {
   id              String          @id @default(uuid())
@@ -120,7 +120,8 @@ model ContractConfig {
 
 model Bot {
   id           String   @id @default(uuid())
-  name         String
+  name         String   @unique
+  address      String
   description  String?
   encryptedKey String?  // Encrypted private key (AES-256)
   role         String   @default("bot")

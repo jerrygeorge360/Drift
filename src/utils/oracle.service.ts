@@ -1,3 +1,5 @@
+// utils/oracle.service.ts
+
 // Types
 interface TokenPrices {
     [key: string]: {
@@ -19,6 +21,7 @@ interface PollingState {
     lastStableUpdate: Date | null;
     callsToday: number;
     startOfDay: number;
+    consecutiveFailures: number;
 }
 
 type StopPollingFunction = () => void;
@@ -29,6 +32,12 @@ if (!API_KEY) {
     throw new Error('Please add coin gecko api key to .env');
 }
 const BASE_URL = 'https://api.coingecko.com/api/v3/simple/price';
+
+// Network configuration
+const FETCH_TIMEOUT = 30000; // 30 seconds
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+const MAX_CONSECUTIVE_FAILURES = 5;
 
 // Token groups
 const VOLATILE_TOKENS = ['wrapped-bitcoin', 'weth', 'wrapped-solana'] as const;
@@ -48,7 +57,8 @@ let pollingState: PollingState = {
     lastVolatileUpdate: null,
     lastStableUpdate: null,
     callsToday: 0,
-    startOfDay: new Date().setHours(0, 0, 0, 0)
+    startOfDay: new Date().setHours(0, 0, 0, 0),
+    consecutiveFailures: 0
 };
 
 // Store interval IDs
@@ -56,7 +66,7 @@ let volatileIntervalId: NodeJS.Timeout | null = null;
 let stableIntervalId: NodeJS.Timeout | null = null;
 
 /**
- * Fetch prices from CoinGecko API
+ * Fetch prices from CoinGecko API with timeout and retry logic
  * @param {string[]} tokenIds - Array of token IDs to fetch
  * @returns {Promise<TokenPrices | null>} - Price data
  */
@@ -64,16 +74,31 @@ async function fetchPrices(tokenIds: readonly string[]): Promise<TokenPrices | n
     const ids = tokenIds.join(',');
     const url = `${BASE_URL}?ids=${ids}&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true&include_last_updated_at=true&precision=2`;
 
-    try {
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
+    try {
         const response = await fetch(url, {
             headers: {
-                'x-cg-pro-api-key': API_KEY
-            } as Record<string, string>
+                'x-cg-pro-api-key': API_KEY,
+                'Accept': 'application/json',
+                'User-Agent': 'MetaSmartPort/1.0'
+            } as Record<string, string>,
+            signal: controller.signal
         });
 
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
+            // Handle rate limiting
+            if (response.status === 429) {
+                console.error(`[${new Date().toISOString()}] ⚠ Rate limit exceeded (429)`);
+                const retryAfter = response.headers.get('Retry-After');
+                if (retryAfter) {
+                    console.log(`Retry after ${retryAfter} seconds`);
+                }
+            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -85,9 +110,80 @@ async function fetchPrices(tokenIds: readonly string[]): Promise<TokenPrices | n
 
         return data;
     } catch (error) {
+        clearTimeout(timeoutId);
+
+        if (error instanceof Error) {
+            if (error.name === 'AbortError') {
+                console.error(`[${new Date().toISOString()}] ✗ Request timeout after ${FETCH_TIMEOUT}ms`);
+                throw new Error(`Request timeout after ${FETCH_TIMEOUT}ms`);
+            }
+
+            // Handle network errors
+            if ('cause' in error && error.cause) {
+                const cause = error.cause as any;
+                if (cause.code === 'ETIMEDOUT') {
+                    console.error(`[${new Date().toISOString()}] ✗ Network connection timeout`);
+                    throw new Error('Network connection timeout - please check your internet connection');
+                }
+                if (cause.code === 'ECONNREFUSED') {
+                    console.error(`[${new Date().toISOString()}] ✗ Connection refused`);
+                    throw new Error('Connection refused - API may be down');
+                }
+                if (cause.code === 'ENOTFOUND') {
+                    console.error(`[${new Date().toISOString()}] ✗ DNS lookup failed`);
+                    throw new Error('DNS lookup failed - check your network/DNS settings');
+                }
+            }
+        }
+
         console.error('Error fetching prices:', error);
-        return null;
+        throw error;
     }
+}
+
+/**
+ * Fetch with exponential backoff retry logic
+ */
+async function fetchWithRetry(tokenIds: readonly string[]): Promise<TokenPrices | null> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+            const prices = await fetchPrices(tokenIds);
+
+            // Reset failure counter on success
+            if (pollingState.consecutiveFailures > 0) {
+                console.log(`[${new Date().toISOString()}] ✓ Recovered after ${pollingState.consecutiveFailures} consecutive failures`);
+                pollingState.consecutiveFailures = 0;
+            }
+
+            return prices;
+        } catch (error) {
+            lastError = error instanceof Error ? error : new Error('Unknown error');
+
+            const isLastAttempt = attempt === MAX_RETRIES - 1;
+            if (isLastAttempt) break;
+
+            const delay = Math.min(INITIAL_RETRY_DELAY * Math.pow(2, attempt), 10000);
+            console.log(`[${new Date().toISOString()}] ⚠ Attempt ${attempt + 1}/${MAX_RETRIES} failed: ${lastError.message}`);
+            console.log(`[${new Date().toISOString()}] Retrying in ${delay}ms...`);
+
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+
+    pollingState.consecutiveFailures++;
+    console.error(`[${new Date().toISOString()}] ✗ All ${MAX_RETRIES} attempts failed: ${lastError?.message}`);
+    console.error(`[${new Date().toISOString()}] Consecutive failures: ${pollingState.consecutiveFailures}`);
+
+    // Auto-stop if too many consecutive failures
+    if (pollingState.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        console.error(`[${new Date().toISOString()}] ⚠ CRITICAL: Stopping polling after ${pollingState.consecutiveFailures} consecutive failures`);
+        console.error(`[${new Date().toISOString()}] Please check your network connection and CoinGecko API status`);
+        stopPricePolling();
+    }
+
+    return null;
 }
 
 /**
@@ -107,7 +203,7 @@ function resetDailyCounterIfNeeded(): void {
 async function pollVolatilePrices(): Promise<void> {
     console.log(`[${new Date().toISOString()}] Fetching volatile token prices...`);
 
-    const prices = await fetchPrices(VOLATILE_TOKENS);
+    const prices = await fetchWithRetry(VOLATILE_TOKENS);
 
     if (prices) {
         // Update latest prices
@@ -115,7 +211,7 @@ async function pollVolatilePrices(): Promise<void> {
         pollingState.lastVolatileUpdate = new Date();
         lastPriceUpdate = new Date();
 
-        console.log('Volatile tokens updated:', {
+        console.log(`[${new Date().toISOString()}] ✓ Volatile tokens updated:`, {
             WBTC: prices['wrapped-bitcoin']?.usd,
             WETH: prices['weth']?.usd,
             WSOL: prices['wrapped-solana']?.usd
@@ -129,7 +225,7 @@ async function pollVolatilePrices(): Promise<void> {
 async function pollStablePrices(): Promise<void> {
     console.log(`[${new Date().toISOString()}] Fetching stable token prices...`);
 
-    const prices = await fetchPrices(STABLE_TOKENS);
+    const prices = await fetchWithRetry(STABLE_TOKENS);
 
     if (prices) {
         // Update latest prices
@@ -137,7 +233,7 @@ async function pollStablePrices(): Promise<void> {
         pollingState.lastStableUpdate = new Date();
         lastPriceUpdate = new Date();
 
-        console.log('Stable tokens updated:', {
+        console.log(`[${new Date().toISOString()}] ✓ Stable tokens updated:`, {
             USDC: prices['usd-coin']?.usd,
             USDT: prices['tether']?.usd
         });
@@ -171,6 +267,11 @@ export function startPricePolling(): StopPollingFunction {
     console.log('Starting tiered price polling service...');
     console.log(`- Volatile tokens (WBTC, WETH, WSOL): Every ${VOLATILE_INTERVAL / 1000}s`);
     console.log(`- Stable tokens (USDC, USDT): Every ${STABLE_INTERVAL / 1000}s`);
+    console.log(`- Timeout: ${FETCH_TIMEOUT / 1000}s per request`);
+    console.log(`- Retries: ${MAX_RETRIES} attempts with exponential backoff`);
+
+    // Reset failure counter on manual start
+    pollingState.consecutiveFailures = 0;
 
     // Initial fetch for both groups
     pollVolatilePrices();
@@ -208,6 +309,7 @@ export function stopPricePolling(): void {
     }
 
     pollingState.isRunning = false;
+    console.log('Price polling service stopped');
 }
 
 /**
@@ -243,7 +345,10 @@ export function getPollingStatus() {
         lastPriceUpdate,
         callsToday: pollingState.callsToday,
         estimatedMonthlyCalls,
-        remainingMonthlyBuffer: 50000 - estimatedMonthlyCalls
+        remainingMonthlyBuffer: 50000 - estimatedMonthlyCalls,
+        consecutiveFailures: pollingState.consecutiveFailures,
+        healthStatus: pollingState.consecutiveFailures === 0 ? 'healthy' :
+            pollingState.consecutiveFailures < 3 ? 'degraded' : 'critical'
     };
 }
 
@@ -300,6 +405,19 @@ export function calculateMonthlyCalls(): void {
     console.log(`- Total: ~${Math.ceil(totalCalls)} calls/month`);
     console.log(`- Remaining buffer: ~${50000 - Math.ceil(totalCalls)} calls\n`);
 }
+
+// Graceful shutdown handlers
+process.on('SIGINT', () => {
+    console.log('\n[SIGINT] Received interrupt signal, shutting down gracefully...');
+    stopPricePolling();
+    process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    console.log('\n[SIGTERM] Received termination signal, shutting down gracefully...');
+    stopPricePolling();
+    process.exit(0);
+});
 
 // Export types
 export type { CurrentPrices, TokenPrices, PollingState };

@@ -43,7 +43,7 @@ export const getTokenBySymbolController = async (req:Request, res:Response) => {
 export const getTokenByAddressController = async (req:Request, res:Response) => {
     try {
         const { address } = req.params;
-        const token = await findTokenByAddress(address.toLowerCase());
+        const token = await findTokenByAddress(address);
         if (!token) return res.status(404).json({ error: 'Token not found' });
         res.status(200).json(token);
     } catch (err) {

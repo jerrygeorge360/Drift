@@ -11,13 +11,13 @@ import {runAIAgent} from "../modules/bot/bot.agent.js";
 // Create a new bot
 export async function createBotController(req: Request, res: Response) {
     try {
-        const { name, description, privateKey, status } = req.body;
+        const { name, description,address, privateKey, status } = req.body;
 
         if (!name || !privateKey) {
             return res.status(400).json({ message: "Missing name or privateKey" });
         }
 
-        const bot = await createBot({ name, description, privateKey, status });
+        const bot = await createBot({ name, description, address,privateKey, status });
         res.status(201).json(bot);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

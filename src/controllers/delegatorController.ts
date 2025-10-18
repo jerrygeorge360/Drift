@@ -6,6 +6,7 @@ import {
 
 import {reconstructSmartAccount} from "../utils/delegationhelpers.js";
 import {createDelegationdb, findSmartAccountById, getUserSmartAccounts, revokeDelegation} from "../utils/dbhelpers.js";
+import {decryptPrivateKey} from "../utils/encryption.js";
 
 export interface AuthRequest extends Request {
     user?: { id: string; address: string };
@@ -32,9 +33,13 @@ export const createDelegationController = async (req: AuthRequest, res: Response
         }
 
         const smartAccount = await findSmartAccountById(smartAccountId)
-
+        if(!smartAccount || !smartAccount.privateKey ) {
+            throw('No smartAccount or privateKey failed')
+        }
         // collect user ids and query for the keys
-        const delegatorPrivateKey:`0x${string}` = smartAccount.privateKey;
+        // deencrypt the keys
+
+        const delegatorPrivateKey:`0x${string}` = decryptPrivateKey(smartAccount.privateKey);
         const delegatePrivateKey:`0x${string}`= '0xd'// bot privateKey
 
         const delegatorSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatorPrivateKey)

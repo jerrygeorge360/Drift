@@ -11,7 +11,7 @@ import authMiddleware, {requireRole} from "../middleware/authMiddleware.js";
 const delegationRouter = Router();
 
 // Create a new delegation
-delegationRouter.post('/',authMiddleware,requireRole(["user"]), createDelegationController);
+delegationRouter.post('/:smartAccountId',authMiddleware,requireRole(["user"]), createDelegationController);
 
 // Revoke an existing delegation
 delegationRouter.put('/:delegationId/revoke',authMiddleware,requireRole(["user"]), revokeDelegationController);

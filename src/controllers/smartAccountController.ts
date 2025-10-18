@@ -43,8 +43,8 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
             signer: { account },
         });
 
-        await createSmartAccountdb(userId,account.address,encrypted,walletAddress);
-        return res.status(200).json({message: "created smartAccount",account:smartAccount.address});
+        const createdSmartAccount = await createSmartAccountdb(userId,smartAccount.address,encrypted,walletAddress);
+        return res.status(200).json({message: "created smartAccount",account:createdSmartAccount});
 
     } catch (err) {
         next(err);
@@ -60,7 +60,7 @@ export const deleteSmartAccount = async (req: AuthRequest, res: Response, next: 
         }
 
         const userId = req.user.id;
-        const smartAccountId = req.params.smartAccountId;
+        const smartAccountId = req.params.id;
 
         if (!smartAccountId) {
             return res.status(400).json({ message: "Smart account ID is required" });

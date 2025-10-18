@@ -36,7 +36,7 @@ export function encryptPrivateKey(plainText: string): string {
  * Decrypt an encrypted private key string.
  * Assumes the IV is prepended to the encrypted data (base64 format).
  */
-export function decryptPrivateKey(encryptedText: string): string {
+export function decryptPrivateKey(encryptedText: string): `0x${string}` {
     const encryptedBuffer = Buffer.from(encryptedText, ENCODING);
 
     const iv = encryptedBuffer.subarray(0, IV_LENGTH);
@@ -49,5 +49,5 @@ export function decryptPrivateKey(encryptedText: string): string {
         decipher.final(),
     ]);
 
-    return decrypted.toString("utf8");
+    return decrypted.toString("utf8")  as `0x${string}`;
 }

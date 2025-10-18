@@ -52,7 +52,7 @@ export async function updateUserLastLogin(userId: string) {
 //
 
 // Create new smart account for user + create portfolio automatically (one-to-one)
-export async function createSmartAccountdb(userId: string, address: string, privateKey?: string, portfolioName = "Default Portfolio") {
+export async function createSmartAccountdb(userId: string, address: string, privateKey: string, portfolioName = "Default Portfolio") {
     return prisma.smartAccount.create({
         data: {
             userId,
@@ -267,10 +267,6 @@ export async function deleteAllPortfolioAllocations(portfolioId: any) {
 
 
 
-//
-// REBALANCE LOG
-//
-
 // Log a rebalance event
 export async function createRebalanceLog(
     data:
@@ -293,20 +289,35 @@ export async function createRebalanceLog(
         executor: string;
     }[]
 ) {
-    // 🧩 If array → bulk insert
     if (Array.isArray(data)) {
+        // 🧩 Bulk insert (createMany only accepts scalar fields — no nested connect)
         return prisma.rebalanceLog.createMany({
-            data,
-            skipDuplicates: true, // optional — avoids duplicates if IDs overlap
+            data: data.map((d) => ({
+                portfolioId: d.portfolioId,
+                tokenInId: d.tokenInId,
+                tokenOutId: d.tokenOutId,
+                amountIn: d.amountIn,
+                amountOut: d.amountOut,
+                reason: d.reason,
+                executor: d.executor,
+            })),
+            skipDuplicates: true,
         });
     }
 
-    // 🧩 Otherwise → single insert
+    // 🧩 Single insert
     return prisma.rebalanceLog.create({
-        data,
+        data: {
+            portfolioId: data.portfolioId,
+            tokenInId: data.tokenInId,
+            tokenOutId: data.tokenOutId,
+            amountIn: data.amountIn,
+            amountOut: data.amountOut,
+            reason: data.reason,
+            executor: data.executor,
+        },
     });
 }
-
 
 // Get rebalance logs for a portfolio
 export async function getRebalanceLogs(portfolioId: string, limit = 50) {
@@ -411,19 +422,25 @@ export async function deleteContractConfig(contractAddress: string) {
 export async function createBot(data: {
     name: string;
     description?: string;
+    address: string;
     privateKey: string;
+    role?: string;
     status?: string;
 }) {
     const encryptedKey = encryptPrivateKey(data.privateKey);
+
     return prisma.bot.create({
         data: {
             name: data.name,
             description: data.description,
+            address: data.address, // ✅ required
             encryptedKey,
+            role: data.role || "bot",
             status: data.status || "active",
         },
     });
 }
+
 
 // Get all bots
 export async function getAllBots() {

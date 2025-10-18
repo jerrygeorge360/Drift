@@ -1,6 +1,7 @@
 import {reconstructSmartAccount} from "../../utils/delegationhelpers.js";
 import {redeemDelegation} from "../delegation/services.js";
 import {getBotByName, getDelegationById} from "../../utils/dbhelpers.js";
+import {decryptPrivateKey} from "../../utils/encryption.js";
 
 export type RebalanceParams = {
     botAddress: string;
@@ -26,17 +27,18 @@ export async function redeemDelegationService(smartAccountID: string,reBalance:R
     }
 
     // Find the first delegation with a valid signed signature
-    const delegationRecord = delegation.find((d: { signedSignature: any; }) => d.signedSignature);
+ const delegationRecord = delegation.signature ? delegation : null;
+
 
     if (!delegationRecord) {
         throw new Error("No valid signed delegation found");
     }
 
-    const signedDelegation = delegationRecord.signedSignature;
+    const signedDelegation = delegationRecord.signature;
     const bot = await getBotByName('alpha',true);
-    if (!bot || !bot.privateKey) throw new Error('Bot not found or missing key');
+    if (!bot || !bot.encryptedKey) throw new Error('Bot not found or missing key');
     // get this from the bot database
-    const delegatePrivateKey: `0x${string}` = bot.privateKey;
+    const delegatePrivateKey: `0x${string}` = decryptPrivateKey(bot.encryptedKey);
     if (!delegatePrivateKey) {
         throw new Error("BOT_PRIVATE_KEY environment variable is missing");
     }

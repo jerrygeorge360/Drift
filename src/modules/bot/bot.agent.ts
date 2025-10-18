@@ -173,7 +173,7 @@ For example, if BTC is 5% over target and ETH is 5% under, swap some BTC for ETH
                         console.log(`     Swap ${adj.percent}% of portfolio (${swapValue.toFixed(2)})`);
                         console.log(`     Out: ${amountOut.toFixed(6)} ${adj.tokenOutId}`);
                         console.log(`     In: ${amountIn.toFixed(6)} ${adj.tokenInId}`);
-                        const res = await RebalanceService.logRebalance({
+                        const res = {
                             portfolioId: portfolio.id,
                             tokenInId: adj.tokenInId,
                             tokenOutId: adj.tokenOutId,
@@ -181,7 +181,7 @@ For example, if BTC is 5% over target and ETH is 5% under, swap some BTC for ETH
                             amountOut: amountOut,
                             reason: `${reason} (redeemed first)`,
                             executor: bot.name,
-                        });
+                        }
                         const rebalanceParams = {
                             botAddress: bot.address,                 // The bot’s smart account or EOA
                             tokenIn: adj.tokenInId,                 // token to receive
