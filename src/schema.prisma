@@ -40,7 +40,6 @@ model Delegation {
   smartAccountId   String
   delegatorAddress String
   delegateAddress  String
-  scope            String[]   // e.g. ["transfer", "rebalance"]
   expiresAt        DateTime?  // optional expiration
   revoked          Boolean   @default(false)
   signature        String     // Signed delegation message (off-chain signature)

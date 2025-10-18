@@ -5,7 +5,12 @@ import {
 } from "../modules/delegation/services.js";
 
 import {reconstructSmartAccount} from "../utils/delegationhelpers.js";
-import {createDelegationdb, findSmartAccountById, getUserSmartAccounts, revokeDelegation} from "../utils/dbhelpers.js";
+import {
+    createDelegationdb,
+    findSmartAccountById, getBotByName,
+    getUserSmartAccounts,
+    revokeDelegation
+} from "../utils/dbhelpers.js";
 import {decryptPrivateKey} from "../utils/encryption.js";
 
 export interface AuthRequest extends Request {
@@ -39,21 +44,24 @@ export const createDelegationController = async (req: AuthRequest, res: Response
         // collect user ids and query for the keys
         // deencrypt the keys
 
+        const bot = await getBotByName('Drift',true)
+        if(!bot || !bot.privateKey){
+            return res.status(401).json({ message: "No smartAccount or privateKey failed" });
+        }
         const delegatorPrivateKey:`0x${string}` = decryptPrivateKey(smartAccount.privateKey);
-        const delegatePrivateKey:`0x${string}`= '0xd'// bot privateKey
+        const delegatePrivateKey:`0x${string}`= bot.privateKey;
 
         const delegatorSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatorPrivateKey)
         const delegateSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatePrivateKey)
-        const scope = data.scope || {};
+
 
 
         // Create and sign the delegation
         const signature = await delegationService(
             delegatorSmartAccount,
             delegateSmartAccount,
-            scope
         );
-        if (!smartAccountId || !delegatorPrivateKey || !delegatePrivateKey || !scope || !Array.isArray(scope) || !signature) {
+        if (!smartAccountId || !delegatorPrivateKey || !delegatePrivateKey || !signature) {
             return res.status(400).json({ message: "Missing or invalid fields" });
         }
 
@@ -61,7 +69,6 @@ export const createDelegationController = async (req: AuthRequest, res: Response
             smartAccountId,
             delegatorSmartAccount,
             delegateSmartAccount,
-            scope,
             signature,
         })
 
@@ -72,7 +79,6 @@ export const createDelegationController = async (req: AuthRequest, res: Response
                 smartAccountId: delegation.smartAccountId,
                 delegatorAddress: delegation.delegatorAddress,
                 delegateAddress: delegation.delegateAddress,
-                scope: delegation.scope,
                 createdAt: delegation.createdAt,
                 updatedAt: delegation.updatedAt,
             },

@@ -28,6 +28,7 @@ type StopPollingFunction = () => void;
 
 // Configuration
 const API_KEY = process.env.COIN_GECKO_API_KEY;
+console.log(API_KEY);
 if (!API_KEY) {
     throw new Error('Please add coin gecko api key to .env');
 }
@@ -81,7 +82,7 @@ async function fetchPrices(tokenIds: readonly string[]): Promise<TokenPrices | n
     try {
         const response = await fetch(url, {
             headers: {
-                'x-cg-pro-api-key': API_KEY,
+                'x-cg-demo-api-key': API_KEY,
                 'Accept': 'application/json',
                 'User-Agent': 'MetaSmartPort/1.0'
             } as Record<string, string>,

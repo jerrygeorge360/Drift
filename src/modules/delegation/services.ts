@@ -4,14 +4,16 @@ import {encodeFunctionData} from "viem"
 import {bundlerClient} from "../../controllers/clients.js";
 import smartPortfolio from "../../contracts/abi/SmartPortfolio.json" with { type: 'json' };
 import {RebalanceParams} from "../bot/bot.delegation.js";
+import {smartPortfolioScope} from "../../config/delegationConfig.js";
+
 
 // create delegation
-export const createSignedDelegation = async (delegatorSmartAccount:MetaMaskSmartAccount,delegateSmartAccount:MetaMaskSmartAccount,scope: any)=>{
+export const createSignedDelegation = async (delegatorSmartAccount:MetaMaskSmartAccount,delegateSmartAccount:MetaMaskSmartAccount)=>{
     const delegation= createDelegation({
         to: delegateSmartAccount.address,
         from: delegatorSmartAccount.address,
         environment: delegatorSmartAccount.environment,
-        scope: scope,
+        scope: smartPortfolioScope,
     })
 
     const signature = await delegatorSmartAccount.signDelegation({

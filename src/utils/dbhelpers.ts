@@ -1,6 +1,7 @@
 import prisma from "../config/db.js";
 import {SmartAccount} from "viem/account-abstraction";
 import {decryptPrivateKey, encryptPrivateKey} from "./encryption.js";
+import {Bot} from "@prisma/client";
 
 //
 // USER
@@ -121,7 +122,6 @@ export async function createDelegationdb(data: {
     smartAccountId: string;
     delegatorSmartAccount: SmartAccount;
     delegateSmartAccount: SmartAccount;
-    scope: string[];
     signature:any;
     expiresAt?: Date;
 }) {
@@ -130,7 +130,6 @@ export async function createDelegationdb(data: {
             smartAccountId: data.smartAccountId,
             delegatorAddress: data.delegatorSmartAccount.address,
             delegateAddress: data.delegateSmartAccount.address,
-            scope: data.scope,
             signature: data.signature,
             expiresAt: data.expiresAt,
         },
@@ -476,14 +475,21 @@ export async function updateBot(botId: string, data: Partial<{ name: string; des
     });
 }
 
-export async function getBotByName(name: string, withPrivateKey = false) {
-    const bot = await prisma.bot.findUnique({ where: { name: name } });
+export async function getBotByName(
+    name: string,
+    withPrivateKey = false
+): Promise<(Bot & { privateKey?: `0x${string}` }) | null> {
+    const bot = await prisma.bot.findUnique({ where: { name } });
     if (!bot) return null;
-    if (withPrivateKey && bot.encryptedKey){
+
+    if (withPrivateKey && bot.encryptedKey) {
         const decrypted = decryptPrivateKey(bot.encryptedKey);
-        return { ...bot, privateKey: decrypted }; }
+        return { ...bot, privateKey: decrypted };
+    }
+
     return bot;
 }
+
 
 
 // Delete bot
