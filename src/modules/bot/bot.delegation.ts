@@ -14,7 +14,15 @@ export type RebalanceParams = {
 }
 
 
-export async function redeemDelegationService(smartAccountID: string,reBalance:RebalanceParams) {
+export async function redeemDelegationService(smartAccountID: string, reBalance: {
+    botAddress: any;
+    tokenIn: any;
+    tokenOut: any;
+    amountOut: bigint;
+    amountInMin: bigint;
+    swapPath: any[];
+    reason: string
+}) {
     if (!smartAccountID) {
         throw new Error("Smart account id is required");
     }

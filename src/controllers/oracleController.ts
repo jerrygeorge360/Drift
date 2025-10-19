@@ -1,153 +1,189 @@
-// controllers/PricePollingController.ts
 import { Request, Response } from 'express';
 import {
-    getCurrentPrices,
     startPricePolling,
     stopPricePolling,
     restartPricePolling,
+    getCurrentPrices,
+    getMarketDataForBot,
+    getMarketDataForTokens,
+    isMarketDataFresh,
     getPollingStatus,
     updateIntervals,
-    forceUpdate
-} from "../utils/oracle.service.js";
+    forceUpdate,
+    triggerWebhook
+} from '../utils/oracle.service.js';
 
 class PricePollingController {
-
     /**
-     * GET /api/admin/price-polling/status
-     * Get current polling status
+     * Get polling status and statistics
      */
-    static getStatus(req: Request, res: Response): void {
+    getStatus(req: Request, res: Response) {
         try {
             const status = getPollingStatus();
             res.json({
                 success: true,
                 data: status
             });
-        } catch (error) {
+        } catch (error: any) {
             res.status(500).json({
                 success: false,
-                message: 'Failed to fetch status',
-                error: error instanceof Error ? error.message : 'Unknown error'
+                message: 'Failed to get polling status',
+                error: error.message
             });
         }
     }
 
     /**
-     * POST /api/admin/price-polling/start
      * Start the polling service
      */
-    static startPolling(req: Request, res: Response): void {
+    startPolling(req: Request, res: Response) {
         try {
             startPricePolling();
+
             res.json({
                 success: true,
                 message: 'Price polling service started successfully'
             });
-        } catch (error) {
+        } catch (error: any) {
             res.status(500).json({
                 success: false,
                 message: 'Failed to start polling service',
-                error: error instanceof Error ? error.message : 'Unknown error'
+                error: error.message
             });
         }
     }
 
     /**
-     * POST /api/admin/price-polling/stop
      * Stop the polling service
      */
-    static stopPolling(req: Request, res: Response): void {
+    stopPolling(req: Request, res: Response) {
         try {
             stopPricePolling();
             res.json({
                 success: true,
                 message: 'Price polling service stopped successfully'
             });
-        } catch (error) {
+        } catch (error: any) {
             res.status(500).json({
                 success: false,
                 message: 'Failed to stop polling service',
-                error: error instanceof Error ? error.message : 'Unknown error'
+                error: error.message
             });
         }
     }
 
     /**
-     * POST /api/admin/price-polling/restart
      * Restart the polling service
      */
-    static restartPolling(req: Request, res: Response): void {
+    restartPolling(req: Request, res: Response) {
         try {
             restartPricePolling();
             res.json({
                 success: true,
-                message: 'Price polling service restarting...'
+                message: 'Price polling service restarted successfully'
             });
-        } catch (error) {
+        } catch (error: any) {
             res.status(500).json({
                 success: false,
                 message: 'Failed to restart polling service',
-                error: error instanceof Error ? error.message : 'Unknown error'
+                error: error.message
             });
         }
     }
 
     /**
-     * GET /api/admin/price-polling/prices
-     * Get current cached prices
+     * Get current prices (simple format)
      */
-    static getPrices(req: Request, res: Response): void {
+    getPrices(req: Request, res: Response) {
         try {
             const prices = getCurrentPrices();
-            const status = getPollingStatus();
+            const isFresh = isMarketDataFresh();
 
             res.json({
                 success: true,
-                data: {
-                    prices,
-                    lastUpdate: status.lastPriceUpdate,
-                    cacheAge: status.lastPriceUpdate
-                        ? Math.floor((Date.now() - status.lastPriceUpdate.getTime()) / 1000)
-                        : null
+                data: prices,
+                metadata: {
+                    fresh: isFresh,
+                    warning: !isFresh ? 'Price data may be stale' : undefined
                 }
             });
-        } catch (error) {
+        } catch (error: any) {
             res.status(500).json({
                 success: false,
-                message: 'Failed to fetch prices',
-                error: error instanceof Error ? error.message : 'Unknown error'
+                message: 'Failed to get prices',
+                error: error.message
             });
         }
     }
 
     /**
-     * POST /api/admin/price-polling/intervals
-     * Update polling intervals (requires restart to take effect)
+     * Get market data for bot (full format with market cap, volume, 24h change)
      */
-    static updateIntervals(req: Request, res: Response): void {
-        const { volatileInterval, stableInterval } = req.body;
-
+    getMarketData(req: Request, res: Response) {
         try {
-            updateIntervals(volatileInterval, stableInterval);
+            const { tokens } = req.query;
+
+            let marketData;
+
+            // If specific tokens requested, filter
+            if (tokens && typeof tokens === 'string') {
+                const tokenArray = tokens.split(',').map(t => t.trim());
+                marketData = getMarketDataForTokens(tokenArray);
+            } else {
+                // Otherwise return all tokens
+                marketData = getMarketDataForBot();
+            }
+
+            const isFresh = isMarketDataFresh();
 
             res.json({
                 success: true,
-                message: 'Intervals updated. Restart polling service for changes to take effect.',
-                data: getPollingStatus()
+                data: marketData,
+                metadata: {
+                    fresh: isFresh,
+                    tokenCount: Object.keys(marketData).length,
+                    warning: !isFresh ? 'Market data may be stale (>5 minutes old)' : undefined
+                }
             });
-        } catch (error) {
-            res.status(400).json({
+        } catch (error: any) {
+            res.status(500).json({
                 success: false,
-                message: error instanceof Error ? error.message : 'Invalid interval values'
+                message: 'Failed to get market data',
+                error: error.message
             });
         }
     }
 
     /**
-     * POST /api/admin/price-polling/force-update
-     * Force an immediate price update
+     * Update polling intervals
      */
-    static async forceUpdate(req: Request, res: Response): Promise<void> {
+    updateIntervals(req: Request, res: Response) {
+        try {
+            const { volatileSeconds, stableSeconds } = req.body;
+
+            updateIntervals(volatileSeconds, stableSeconds);
+
+            res.json({
+                success: true,
+                message: 'Polling intervals updated. Restart the service for changes to take effect.',
+                data: {
+                    volatileSeconds,
+                    stableSeconds
+                }
+            });
+        } catch (error: any) {
+            res.status(400).json({
+                success: false,
+                message: 'Failed to update intervals',
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Force immediate price update
+     */
+    async forceUpdate(req: Request, res: Response) {
         try {
             const prices = await forceUpdate();
 
@@ -156,14 +192,41 @@ class PricePollingController {
                 message: 'Prices updated successfully',
                 data: prices
             });
-        } catch (error) {
+        } catch (error: any) {
             res.status(500).json({
                 success: false,
                 message: 'Failed to force update',
-                error: error instanceof Error ? error.message : 'Unknown error'
+                error: error.message
+            });
+        }
+    }
+
+    async triggerWebhook(req: Request, res: Response) {
+        try {
+            const { webhookUrl, botName } = req.body;
+
+            if (!webhookUrl || !botName) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'webhookUrl and botName are required fields'
+                });
+            }
+
+            await triggerWebhook(webhookUrl, botName);
+
+            res.json({
+                success: true,
+                message: `Webhook triggered successfully for bot: ${botName}`,
+                webhookUrl
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                message: 'Failed to trigger webhook',
+                error: error.message
             });
         }
     }
 }
 
-export default PricePollingController;
+export default new PricePollingController();

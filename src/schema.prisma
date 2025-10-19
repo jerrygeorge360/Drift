@@ -82,7 +82,8 @@ model PortfolioAllocation {
   portfolioId String
   token       Token     @relation(fields: [tokenId], references: [id])
   tokenId     String
-  percent     Float     // percentage allocation, e.g., 30.5 for 30.5%
+  amount      Float     @default(0)// actual number of tokens user holds
+  percent     Float     // target allocation, e.g., 30.5 for 30.5%
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

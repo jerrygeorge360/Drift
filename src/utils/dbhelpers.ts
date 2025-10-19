@@ -459,7 +459,7 @@ export async function getBotById(botId: string, withPrivateKey = false) {
 }
 
 //  Update bot info (optional private key update)
-export async function updateBot(botId: string, data: Partial<{ name: string; description: string; privateKey: string; status: string; }>) {
+export async function updateBot(botName: string, data: Partial<{ name: string; description: string; privateKey: string; status: string; }>) {
     const updateData: any = { ...data };
     if (data.privateKey) {
         updateData.encryptedKey = encryptPrivateKey(data.privateKey);
@@ -467,7 +467,7 @@ export async function updateBot(botId: string, data: Partial<{ name: string; des
     }
 
     return prisma.bot.update({
-        where: { id: botId },
+        where: { name: botName },
         data: updateData,
     });
 }

@@ -4,6 +4,10 @@
 interface TokenPrices {
     [key: string]: {
         usd: number;
+        usd_market_cap?: number;
+        usd_24h_vol?: number;
+        usd_24h_change?: number;
+        last_updated_at?: number;
     };
 }
 
@@ -45,8 +49,9 @@ const VOLATILE_TOKENS = ['wrapped-bitcoin', 'weth', 'wrapped-solana'] as const;
 const STABLE_TOKENS = ['usd-coin', 'tether'] as const;
 
 // Polling intervals (in milliseconds) - Can be updated
-let VOLATILE_INTERVAL = 45 * 1000; // 45 seconds
-let STABLE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+let VOLATILE_INTERVAL = 60 * 1000 * 2; // 2 minutes
+let STABLE_INTERVAL = 11 * 60 * 1000 ; // 11 minutes
+let TOKEN_INTERVAL = 11* 60 * 1000;
 
 // Store latest prices
 let latestPrices: TokenPrices = {};
@@ -63,8 +68,9 @@ let pollingState: PollingState = {
 };
 
 // Store interval IDs
-let volatileIntervalId: NodeJS.Timeout | null = null;
-let stableIntervalId: NodeJS.Timeout | null = null;
+// let volatileIntervalId: NodeJS.Timeout | null = null;
+// let stableIntervalId: NodeJS.Timeout | null = null;
+let tokenIntervalId: NodeJS.Timeout | null = null;
 
 /**
  * Fetch prices from CoinGecko API with timeout and retry logic
@@ -217,6 +223,9 @@ async function pollVolatilePrices(): Promise<void> {
             WETH: prices['weth']?.usd,
             WSOL: prices['wrapped-solana']?.usd
         });
+
+
+
     }
 }
 
@@ -241,8 +250,74 @@ async function pollStablePrices(): Promise<void> {
     }
 }
 
+
+// Unified polling function
+async function pollAllPrices(): Promise<TokenPrices | null> {
+    console.log(`[${new Date().toISOString()}] Fetching all token prices...`);
+
+    try {
+        // Merge token lists
+        const allTokens = [...VOLATILE_TOKENS, ...STABLE_TOKENS];
+
+        // Fetch all prices with retry
+        const prices = await fetchWithRetry(allTokens);
+
+        if (!prices) {
+            console.warn('⚠️ No prices fetched');
+            return null;
+        }
+
+        // Update latestPrices object
+        Object.assign(latestPrices, prices);
+
+        // Update polling state timestamps
+        const now = new Date();
+        pollingState.lastVolatileUpdate = now;
+        pollingState.lastStableUpdate = now;
+        lastPriceUpdate = now;
+
+        // Map the fetched data into TokenPrices interface format
+        const structuredPrices: TokenPrices = {};
+        for (const tokenId of Object.keys(prices)) {
+            const data = prices[tokenId];
+            structuredPrices[tokenId] = {
+                usd: data.usd ?? 0,
+                usd_market_cap: data.usd_market_cap,
+                usd_24h_vol: data.usd_24h_vol,
+                usd_24h_change: data.usd_24h_change,
+                last_updated_at: Math.floor(now.getTime() / 1000)
+            };
+        }
+
+        console.log(`[${new Date().toISOString()}] ✓ All tokens updated`, {
+            WBTC: structuredPrices['wrapped-bitcoin']?.usd,
+            WETH: structuredPrices['weth']?.usd,
+            WSOL: structuredPrices['wrapped-solana']?.usd,
+            USDC: structuredPrices['usd-coin']?.usd,
+            USDT: structuredPrices['tether']?.usd
+        });
+        const webhookUrl = 'http://localhost:4000/api/delegations/webhook';
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ botName:'Drift',marketData: structuredPrices,agentMode:'auto' })
+        });
+
+        if (!response.ok) {
+            console.error(`❌ Webhook call failed: ${response.status} ${response.statusText}`);
+        } else {
+            console.log(`✅ Webhook called successfully at ${webhookUrl}`);
+        }
+
+        return structuredPrices;
+
+    } catch (error: any) {
+        console.error(`[${new Date().toISOString()}] ❌ Failed to poll prices:`, error.message);
+        return null;
+    }
+}
 /**
- * Get current prices for all tokens
+ * Get current prices for all tokens (simple format)
  * @returns {CurrentPrices} - Latest price data for all tokens
  */
 export function getCurrentPrices(): CurrentPrices {
@@ -253,6 +328,137 @@ export function getCurrentPrices(): CurrentPrices {
         WETH: latestPrices['weth']?.usd ?? null,
         WSOL: latestPrices['wrapped-solana']?.usd ?? null
     };
+}
+
+/**
+ * Get market data in the format expected by the bot
+ * @returns Market data with full details for all tokens
+ */
+export function getMarketDataForBot(): Record<string, {
+    usd: number;
+    usd_market_cap: number;
+    usd_24h_vol: number;
+    usd_24h_change: number;
+    last_updated_at: number;
+}> {
+    const marketData: Record<string, any> = {};
+
+    // Map CoinGecko IDs to your token symbols
+    const tokenMapping: Record<string, string> = {
+        'wrapped-bitcoin': 'bitcoin',
+        'weth': 'ethereum',
+        'wrapped-solana': 'solana',
+        'usd-coin': 'usd-coin',
+        'tether': 'tether'
+    };
+
+    // Transform the data
+    for (const [coinGeckoId, tokenId] of Object.entries(tokenMapping)) {
+        const priceData = latestPrices[coinGeckoId];
+
+        if (priceData) {
+            marketData[tokenId] = {
+                usd: priceData.usd || 0,
+                usd_market_cap: priceData.usd_market_cap || 0,
+                usd_24h_vol: priceData.usd_24h_vol || 0,
+                usd_24h_change: priceData.usd_24h_change || 0,
+                last_updated_at: priceData.last_updated_at || Math.floor(Date.now() / 1000)
+            };
+        }
+    }
+
+    return marketData;
+}
+
+/**
+ * Trigger webhook with market data
+ * @param webhookUrl - The webhook URL to call
+ * @param botName - The bot ID to send
+ */
+export async function triggerWebhook(webhookUrl: string, botName: string): Promise<void> {
+    try {
+        const marketData = getMarketDataForBot();
+
+        if (Object.keys(marketData).length === 0) {
+            console.warn('⚠️ No market data available, skipping webhook call');
+            return;
+        }
+
+        console.log(`📤 Calling webhook: ${webhookUrl}`);
+
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                botName,
+                marketData,
+                agentMode: 'auto'
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Webhook returned ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log(`✅ Webhook call successful: ${result.message || 'OK'}`);
+
+    } catch (error: any) {
+        console.error(`❌ Webhook call failed:`, error.message);
+        throw error;
+    }
+}
+
+/**
+ * Get market data for specific tokens only
+ * @param tokenIds - Array of token IDs to fetch
+ */
+export function getMarketDataForTokens(tokenIds: string[]): Record<string, {
+    usd: number;
+    usd_market_cap: number;
+    usd_24h_vol: number;
+    usd_24h_change: number;
+    last_updated_at: number;
+}> {
+    const allMarketData = getMarketDataForBot();
+    const filteredData: Record<string, any> = {};
+
+    for (const tokenId of tokenIds) {
+        const normalizedId = tokenId.toLowerCase();
+        if (allMarketData[normalizedId]) {
+            filteredData[normalizedId] = allMarketData[normalizedId];
+        }
+    }
+
+    return filteredData;
+}
+
+/**
+ * Check if market data is available and fresh
+ * @param maxAgeMinutes - Maximum age of data in minutes (default: 5)
+ */
+export function isMarketDataFresh(maxAgeMinutes: number = 5): boolean {
+    if (!lastPriceUpdate) return false;
+
+    const ageInMinutes = (Date.now() - lastPriceUpdate.getTime()) / (1000 * 60);
+    return ageInMinutes <= maxAgeMinutes;
+}
+
+/**
+ * Get market data with freshness check
+ * @param maxAgeMinutes - Maximum acceptable age in minutes
+ * @returns Market data or forces update if stale
+ */
+export async function getMarketDataWithFreshnessCheck(maxAgeMinutes: number = 5) {
+    if (!isMarketDataFresh(maxAgeMinutes)) {
+        console.warn(`⚠️ Market data is stale (last update: ${lastPriceUpdate})`);
+        console.log(`🔄 Forcing immediate update...`);
+        await forceUpdate();
+    }
+
+    return getMarketDataForBot();
 }
 
 /**
@@ -275,13 +481,13 @@ export function startPricePolling(): StopPollingFunction {
     pollingState.consecutiveFailures = 0;
 
     // Initial fetch for both groups
-    pollVolatilePrices();
-    pollStablePrices();
-
+    // pollVolatilePrices();
+    // pollStablePrices();
+    pollAllPrices();
     // Set up intervals
-    volatileIntervalId = setInterval(pollVolatilePrices, VOLATILE_INTERVAL);
-    stableIntervalId = setInterval(pollStablePrices, STABLE_INTERVAL);
-
+    // volatileIntervalId = setInterval(pollVolatilePrices, VOLATILE_INTERVAL);
+    // stableIntervalId = setInterval(pollStablePrices, STABLE_INTERVAL);
+    tokenIntervalId = setInterval(pollAllPrices,TOKEN_INTERVAL)
     pollingState.isRunning = true;
 
     // Return stop function
@@ -299,16 +505,21 @@ export function stopPricePolling(): void {
 
     console.log('Stopping price polling service...');
 
-    if (volatileIntervalId) {
-        clearInterval(volatileIntervalId);
-        volatileIntervalId = null;
-    }
+    // if (volatileIntervalId) {
+    //     clearInterval(volatileIntervalId);
+    //     volatileIntervalId = null;
+    // }
+    //
+    // if (stableIntervalId) {
+    //     clearInterval(stableIntervalId);
+    //     stableIntervalId = null;
+    // }
 
-    if (stableIntervalId) {
-        clearInterval(stableIntervalId);
-        stableIntervalId = null;
-    }
 
+    if (tokenIntervalId) {
+        clearInterval(tokenIntervalId);
+        tokenIntervalId = null;
+    }
     pollingState.isRunning = false;
     console.log('Price polling service stopped');
 }
@@ -349,7 +560,8 @@ export function getPollingStatus() {
         remainingMonthlyBuffer: 50000 - estimatedMonthlyCalls,
         consecutiveFailures: pollingState.consecutiveFailures,
         healthStatus: pollingState.consecutiveFailures === 0 ? 'healthy' :
-            pollingState.consecutiveFailures < 3 ? 'degraded' : 'critical'
+            pollingState.consecutiveFailures < 3 ? 'degraded' : 'critical',
+        dataFreshness: isMarketDataFresh() ? 'fresh' : 'stale'
     };
 }
 
