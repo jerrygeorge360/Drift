@@ -76,7 +76,7 @@ export const agentWorker = new Worker(
     async (job) => {
         const startTime = Date.now();
         const { botName, smartAccountId, marketData, agentMode } = job.data;
-        console.log(job.data)
+
 
         try {
             // Validate job data

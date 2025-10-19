@@ -80,8 +80,10 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
         console.log(`🎯 ${actionableAccounts.length} accounts need rebalancing`);
 
         // Step 3: Queue jobs using the helper function for consistency
-        const queuedJobs = [];
-        const failedJobs = [];
+        const queuedJobs: { jobId: string | undefined; smartAccountId: string; }[] = [];
+        const failedJobs: { smartAccountId: string; error: any; }[] = [];
+        console.log('queued jobs',queuedJobs);
+        console.log('failed jobs',failedJobs);
 
         for (const account of actionableAccounts) {
             try {

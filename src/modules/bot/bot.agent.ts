@@ -138,7 +138,7 @@ export async function runAIAgent(
         }
 
         // 🔹 Reset bot to active
-        await updateBot(bot.id, { status: "active" });
+        await updateBot(bot.name, { status: "active" });
 
         return {
             ...result,
