@@ -38,6 +38,7 @@ export const createDelegationController = async (req: AuthRequest, res: Response
         }
 
         const smartAccount = await findSmartAccountById(smartAccountId)
+        console.log(smartAccount);
         if(!smartAccount || !smartAccount.privateKey ) {
             throw('No smartAccount or privateKey failed')
         }
@@ -46,7 +47,7 @@ export const createDelegationController = async (req: AuthRequest, res: Response
 
         const bot = await getBotByName('Drift',true)
         if(!bot || !bot.privateKey){
-            return res.status(401).json({ message: "No smartAccount or privateKey failed" });
+            return res.status(401).json({ message: "No bot or privateKey failed" });
         }
         const delegatorPrivateKey:`0x${string}` = decryptPrivateKey(smartAccount.privateKey);
         const delegatePrivateKey:`0x${string}`= bot.privateKey;

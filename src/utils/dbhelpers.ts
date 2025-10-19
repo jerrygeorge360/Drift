@@ -164,9 +164,6 @@ export async function isValidDelegation(delegateAddress: string, smartAccountId:
             expiresAt: {
                 gt: new Date(),
             },
-            scope: {
-                has: requiredScope,
-            },
         },
     });
 

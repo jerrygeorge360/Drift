@@ -42,7 +42,7 @@ model Delegation {
   delegateAddress  String
   expiresAt        DateTime?  // optional expiration
   revoked          Boolean   @default(false)
-  signature        String     // Signed delegation message (off-chain signature)
+  signature        Json     // Signed delegation message (off-chain signature)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
