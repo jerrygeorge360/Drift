@@ -17,7 +17,7 @@ delegationRouter.post('/:smartAccountId',authMiddleware,requireRole(["user"]), c
 delegationRouter.put('/:delegationId/revoke',authMiddleware,requireRole(["user"]), revokeDelegationController);
 
 // Webhook to handle user-specific delegation redeems (triggered externally)
-delegationRouter.post('/webhooks/delegations/:smartAccountID/redeem',verifyWebhookAuth, userAgentWebhook);
+delegationRouter.post('/webhooks/delegations/redeem',verifyWebhookAuth, userAgentWebhook);
 
 
 
