@@ -5,7 +5,7 @@ export async function llmDecisionEngine(botName: string, context: string): Promi
     console.log(`[${botName}] Thinking...`);
 
     const completion = await groq.chat.completions.create({
-        model: "model: \"llama-3.3-70b-versatile\"",
+        model: "llama-3.3-70b-versatile",
         messages: [
             { role: "system", content: `You are an autonomous trading and delegation agent named ${botName}.` },
             { role: "user", content: context },
