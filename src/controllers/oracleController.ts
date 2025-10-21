@@ -159,16 +159,15 @@ class PricePollingController {
      */
     updateIntervals(req: Request, res: Response) {
         try {
-            const { volatileSeconds, stableSeconds } = req.body;
+            const { allSeconds } = req.body;
 
-            updateIntervals(volatileSeconds, stableSeconds);
+            updateIntervals(allSeconds);
 
             res.json({
                 success: true,
                 message: 'Polling intervals updated. Restart the service for changes to take effect.',
                 data: {
-                    volatileSeconds,
-                    stableSeconds
+                    allSeconds: allSeconds,
                 }
             });
         } catch (error: any) {

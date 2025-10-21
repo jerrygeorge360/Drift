@@ -1,3 +1,4 @@
+
 import express from "express";
 import cors from "cors";
 import errorHandler from "./middleware/errorHandler.js";
@@ -14,9 +15,12 @@ import contractConfigRouter from "./routes/contractConfigRoute.js";
 import botRouter from "./routes/botRoute.js";
 import loginRouter from "./routes/loginRoute.js";
 import oracleRouter from "./routes/oracleRoute.js";
+
+
 // import blockchainRouter from "./routes/blockchainRoute.js";
 // import {adminJs, adminRouter} from "./admin/dashboard.js";
-
+import "./modules/jobs/agentQueue.js";
+import {addAgentJob} from "./modules/jobs/agentQueue.js";
 const app = express();
 
 app.use(cors({
@@ -53,10 +57,8 @@ app.use("/api/portfolio",authMiddleware,requireRole(["user"]), portfolioRouter);
 app.use("/api/rebalance", rebalanceRouter);
 app.use("/api/contract",authMiddleware,requireRole(["admin"]),contractConfigRouter);
 app.use('/api/bot',authMiddleware,requireRole(["admin"]),botRouter);
-app.use('/api/admin/price-polling',authMiddleware,requireRole(['admin']), oracleRouter);
+app.use('/api/admin/price-polling', oracleRouter);
 // app.use('/api/blockchain',blockchainRouter);
-
-
 // Error logging middleware (logs errors first)
 app.use(errorLogger);
 

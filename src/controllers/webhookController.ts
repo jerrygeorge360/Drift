@@ -1,7 +1,10 @@
 import { Request, Response } from "express";
-import { addAgentJob } from "../modules/jobs/agentQueue.js";
+import { addAgentJob} from "../modules/jobs/agentQueue.js";
 import { analyzePortfolio } from "../modules/bot/bot.analyze.js";
 import db from "../config/db.js";
+
+
+
 
 /**
  * Webhook to trigger AI Agents across all portfolios.
@@ -23,7 +26,7 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
 
         // Validate agentMode if provided
         const validModes = ['auto', 'manual', 'test', 'smart', 'urgent'];
-        const mode = agentMode || 'auto'; // Default to 'auto' instead of 'standard'
+        const mode = agentMode || 'auto'; // Default to 'auto'
 
         if (!validModes.includes(mode)) {
             return res.status(400).json({
@@ -57,10 +60,22 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
 
         console.log(`📊 Found ${smartAccounts.length} smart accounts`);
 
+        const analysisList: {
+            accountId: string;
+            currentWeights: any;
+            totalValue: any;
+            needsAdjustment: boolean;
+            recentRebalances: any;
+        }[] = [];
+
         // Step 2: Analyze each portfolio using your AI analyzer
         const actionableAccounts = smartAccounts.filter((account) => {
             try {
                 const analysis = analyzePortfolio(account.portfolio, marketData);
+                analysisList.push({
+                    ...analysis,
+                    accountId: account.id,
+                });
                 console.log(analysis)
                 return analysis.needsAdjustment;
             } catch (error: any) {
@@ -79,6 +94,7 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
 
         console.log(`🎯 ${actionableAccounts.length} accounts need rebalancing`);
 
+
         // Step 3: Queue jobs using the helper function for consistency
         const queuedJobs: { jobId: string | undefined; smartAccountId: string; }[] = [];
         const failedJobs: { smartAccountId: string; error: any; }[] = [];
@@ -87,11 +103,22 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
 
         for (const account of actionableAccounts) {
             try {
+
+                const analysis = analysisList.find(a => a.accountId === account.id);
+                if (!analysis) {
+                    console.warn(`⚠️ No analysis found for account ${account.id}`);
+                    continue;
+                }
+
+
                 const job = await addAgentJob(
                     botName || "Drift", // default bot if not provided
                     account.id,
                     marketData,
-                    mode
+                    mode,
+                    analysis.currentWeights,
+                    analysis.recentRebalances,
+                    analysis.totalValue
                 );
 
                 queuedJobs.push({
@@ -109,6 +136,7 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
             }
         }
 
+        console.log(queuedJobs)
         // Step 4: Respond with detailed results
         const response: any = {
             message: `Successfully queued ${queuedJobs.length} AI Agent jobs`,
@@ -130,7 +158,7 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
 
         // Return 207 Multi-Status if some jobs failed, otherwise 202 Accepted
         const statusCode = failedJobs.length > 0 ? 207 : 202;
-
+        console.log(response)
         res.status(statusCode).json(response);
 
     } catch (error: any) {

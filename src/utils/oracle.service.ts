@@ -49,9 +49,8 @@ const VOLATILE_TOKENS = ['wrapped-bitcoin', 'weth', 'wrapped-solana'] as const;
 const STABLE_TOKENS = ['usd-coin', 'tether'] as const;
 
 // Polling intervals (in milliseconds) - Can be updated
-let VOLATILE_INTERVAL = 60 * 1000 * 2; // 2 minutes
-let STABLE_INTERVAL = 11 * 60 * 1000 ; // 11 minutes
-let TOKEN_INTERVAL = 11* 60 * 1000;
+
+let TOKEN_INTERVAL = 2 * 60 * 1000;
 
 // Store latest prices
 let latestPrices: TokenPrices = {};
@@ -201,52 +200,6 @@ function resetDailyCounterIfNeeded(): void {
     if (currentDayStart !== pollingState.startOfDay) {
         pollingState.callsToday = 0;
         pollingState.startOfDay = currentDayStart;
-    }
-}
-
-/**
- * Poll volatile token prices
- */
-async function pollVolatilePrices(): Promise<void> {
-    console.log(`[${new Date().toISOString()}] Fetching volatile token prices...`);
-
-    const prices = await fetchWithRetry(VOLATILE_TOKENS);
-
-    if (prices) {
-        // Update latest prices
-        Object.assign(latestPrices, prices);
-        pollingState.lastVolatileUpdate = new Date();
-        lastPriceUpdate = new Date();
-
-        console.log(`[${new Date().toISOString()}] ✓ Volatile tokens updated:`, {
-            WBTC: prices['wrapped-bitcoin']?.usd,
-            WETH: prices['weth']?.usd,
-            WSOL: prices['wrapped-solana']?.usd
-        });
-
-
-
-    }
-}
-
-/**
- * Poll stable token prices
- */
-async function pollStablePrices(): Promise<void> {
-    console.log(`[${new Date().toISOString()}] Fetching stable token prices...`);
-
-    const prices = await fetchWithRetry(STABLE_TOKENS);
-
-    if (prices) {
-        // Update latest prices
-        Object.assign(latestPrices, prices);
-        pollingState.lastStableUpdate = new Date();
-        lastPriceUpdate = new Date();
-
-        console.log(`[${new Date().toISOString()}] ✓ Stable tokens updated:`, {
-            USDC: prices['usd-coin']?.usd,
-            USDT: prices['tether']?.usd
-        });
     }
 }
 
@@ -471,9 +424,9 @@ export function startPricePolling(): StopPollingFunction {
         return stopPricePolling;
     }
 
-    console.log('Starting tiered price polling service...');
-    console.log(`- Volatile tokens (WBTC, WETH, WSOL): Every ${VOLATILE_INTERVAL / 1000}s`);
-    console.log(`- Stable tokens (USDC, USDT): Every ${STABLE_INTERVAL / 1000}s`);
+    // console.log('Starting tiered price polling service...');
+    // console.log(`- Volatile tokens (WBTC, WETH, WSOL): Every ${VOLATILE_INTERVAL / 1000}s`);
+    // console.log(`- Stable tokens (USDC, USDT): Every ${STABLE_INTERVAL / 1000}s`);
     console.log(`- Timeout: ${FETCH_TIMEOUT / 1000}s per request`);
     console.log(`- Retries: ${MAX_RETRIES} attempts with exponential backoff`);
 
@@ -485,8 +438,7 @@ export function startPricePolling(): StopPollingFunction {
     // pollStablePrices();
     pollAllPrices();
     // Set up intervals
-    // volatileIntervalId = setInterval(pollVolatilePrices, VOLATILE_INTERVAL);
-    // stableIntervalId = setInterval(pollStablePrices, STABLE_INTERVAL);
+
     tokenIntervalId = setInterval(pollAllPrices,TOKEN_INTERVAL)
     pollingState.isRunning = true;
 
@@ -544,14 +496,16 @@ export function getPollingStatus() {
     resetDailyCounterIfNeeded();
 
     const minutesPerMonth = 43200; // 30 days
-    const volatileCalls = minutesPerMonth / (VOLATILE_INTERVAL / 60000);
-    const stableCalls = minutesPerMonth / (STABLE_INTERVAL / 60000);
-    const estimatedMonthlyCalls = Math.ceil(volatileCalls + stableCalls);
+    // const volatileCalls = minutesPerMonth / (VOLATILE_INTERVAL / 60000);
+    // const stableCalls = minutesPerMonth / (STABLE_INTERVAL / 60000);
+    const allCalls = minutesPerMonth / (TOKEN_INTERVAL / 60000);
+    const estimatedMonthlyCalls = Math.ceil(allCalls);
 
     return {
         isRunning: pollingState.isRunning,
-        volatileInterval: VOLATILE_INTERVAL / 1000, // in seconds
-        stableInterval: STABLE_INTERVAL / 1000, // in seconds
+        // volatileInterval: VOLATILE_INTERVAL / 1000, // in seconds
+        // stableInterval: STABLE_INTERVAL / 1000, // in seconds
+        tokenInterval: TOKEN_INTERVAL/ 1000, // in seconds
         lastVolatileUpdate: pollingState.lastVolatileUpdate,
         lastStableUpdate: pollingState.lastStableUpdate,
         lastPriceUpdate,
@@ -568,24 +522,31 @@ export function getPollingStatus() {
 /**
  * Update polling intervals (requires restart to take effect)
  */
-export function updateIntervals(volatileSeconds?: number, stableSeconds?: number): void {
-    if (volatileSeconds !== undefined) {
-        if (volatileSeconds < 10 || volatileSeconds > 3600) {
-            throw new Error('Volatile interval must be between 10 and 3600 seconds');
-        }
-        VOLATILE_INTERVAL = volatileSeconds * 1000;
-    }
+export function updateIntervals(allSeconds?:number): void {
+    // if (volatileSeconds !== undefined) {
+    //     if (volatileSeconds < 10 || volatileSeconds > 3600) {
+    //         throw new Error('Volatile interval must be between 10 and 3600 seconds');
+    //     }
+    //     VOLATILE_INTERVAL = volatileSeconds * 1000;
+    // }
 
-    if (stableSeconds !== undefined) {
-        if (stableSeconds < 60 || stableSeconds > 7200) {
-            throw new Error('Stable interval must be between 60 and 7200 seconds');
-        }
-        STABLE_INTERVAL = stableSeconds * 1000;
-    }
+    // if (stableSeconds !== undefined) {
+    //     if (stableSeconds < 60 || stableSeconds > 7200) {
+    //         throw new Error('Stable interval must be between 60 and 7200 seconds');
+    //     }
+    //     STABLE_INTERVAL = stableSeconds * 1000;
+    // }
 
+    if (allSeconds !== undefined) {
+        if (allSeconds < 60 || allSeconds > 7200) {
+            throw new Error('token interval must be between 60 and 7200 seconds');
+        }
+        TOKEN_INTERVAL = allSeconds * 1000;
+    }
     console.log('Intervals updated:', {
-        volatileInterval: VOLATILE_INTERVAL / 1000,
-        stableInterval: STABLE_INTERVAL / 1000
+        // volatileInterval: VOLATILE_INTERVAL / 1000,
+        // stableInterval: STABLE_INTERVAL / 1000,
+        tokenInterval: TOKEN_INTERVAL / 1000,
     });
 }
 
@@ -596,8 +557,7 @@ export async function forceUpdate(): Promise<CurrentPrices> {
     console.log('Forcing immediate price update...');
 
     await Promise.all([
-        pollVolatilePrices(),
-        pollStablePrices()
+        pollAllPrices()
     ]);
 
     return getCurrentPrices();
@@ -608,13 +568,9 @@ export async function forceUpdate(): Promise<CurrentPrices> {
  */
 export function calculateMonthlyCalls(): void {
     const minutesPerMonth = 43200; // 30 days
-    const volatileCalls = minutesPerMonth / (VOLATILE_INTERVAL / 60000);
-    const stableCalls = minutesPerMonth / (STABLE_INTERVAL / 60000);
-    const totalCalls = volatileCalls + stableCalls;
+    const totalCalls = minutesPerMonth / (TOKEN_INTERVAL / 60000)
 
     console.log('\nEstimated Monthly API Usage:');
-    console.log(`- Volatile tokens: ~${Math.ceil(volatileCalls)} calls/month`);
-    console.log(`- Stable tokens: ~${Math.ceil(stableCalls)} calls/month`);
     console.log(`- Total: ~${Math.ceil(totalCalls)} calls/month`);
     console.log(`- Remaining buffer: ~${50000 - Math.ceil(totalCalls)} calls\n`);
 }

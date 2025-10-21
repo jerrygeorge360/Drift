@@ -3,8 +3,10 @@ import { Redis } from "ioredis";
 import { runAIAgent } from "../bot/bot.agent.js";
 
 // Create Redis connection with error handling
-const connection = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
-    maxRetriesPerRequest: null, // Required for BullMQ
+const connection = new Redis({
+    host: "127.0.0.1",
+    port: 6379,
+    maxRetriesPerRequest: null,
     enableReadyCheck: false,
 });
 
@@ -50,10 +52,11 @@ agentQueue.on('error', (err) => {
     console.error('❌ Queue error:', err.message);
 });
 
+
 // Validate job data
 const validateJobData = (data: any) => {
     const { botName, smartAccountId, marketData, agentMode } = data;
-
+    console.log(`validateJobData:`, data);
     if (!smartAccountId || typeof smartAccountId !== 'string') {
         throw new Error('Invalid or missing smartAccountId');
     }
@@ -62,25 +65,24 @@ const validateJobData = (data: any) => {
         throw new Error('Invalid or missing botName');
     }
 
-    // Optional: Add more validations as needed
-    if (agentMode && !['auto', 'manual', 'test'].includes(agentMode)) {
+    // ✅ Fixed: Include all valid agent modes
+    if (agentMode && !['auto', 'manual', 'test', 'smart', 'urgent'].includes(agentMode)) {
         console.warn(`⚠️ Unknown agentMode: ${agentMode}`);
     }
 
     return true;
 };
-
 // Create worker with enhanced error handling
-export const agentWorker = new Worker(
-    "ai-agent-queue",
-    async (job) => {
+export const agentWorker = new Worker("ai-agent-queue", async job => {
+       console.log(job)
+
         const startTime = Date.now();
-        const { botName, smartAccountId, marketData, agentMode } = job.data;
+        const { botName, smartAccountId, marketData, agentMode,currentWeights,recentRebalances,totalValue } = job.data;
 
 
         try {
             // Validate job data
-            validateJobData(job.data);
+            // validateJobData(job.data);
 
             console.log(`👷‍♂️ Processing AI Agent job #${job.id} for ${smartAccountId} (${botName})...`);
 
@@ -88,7 +90,7 @@ export const agentWorker = new Worker(
             await job.updateProgress(10);
 
             // Run the AI agent
-            const result = await runAIAgent(botName, smartAccountId, marketData, agentMode);
+            const result = await runAIAgent(botName, smartAccountId, marketData, agentMode,currentWeights,recentRebalances,totalValue);
 
             await job.updateProgress(100);
 
@@ -197,21 +199,15 @@ process.on('uncaughtException', (error) => {
 
 // Export helper function to add jobs
 export const addAgentJob = async (
-    botName: string,
-    smartAccountId: string,
-    marketData: any,
-    agentMode?: string
-) => {
+    botName: string, smartAccountId: string, marketData: any, agentMode?: string, currentWeights?: any, recentRebalances?: any, totalValue?: any) => {
     try {
+        console.log(botName, smartAccountId, marketData, agentMode,currentWeights,recentRebalances,totalValue)
         const job = await agentQueue.add(
             'process-agent', // Job name
-            { botName, smartAccountId, marketData, agentMode },
-            {
-                jobId: `${smartAccountId}-${Date.now()}`, // Unique job ID
-                priority: agentMode === 'urgent' ? 1 : 10, // Lower number = higher priority
-            }
-        );
+            { botName, smartAccountId, marketData, agentMode,currentWeights,recentRebalances,totalValue},
 
+        );
+        console.log(totalValue)
         console.log(`📝 Job #${job.id} added to queue`);
         return job;
     } catch (error: any) {
@@ -244,3 +240,6 @@ export const getQueueStats = async () => {
         throw error;
     }
 };
+
+const c =await getQueueStats()
+// console.log(c);

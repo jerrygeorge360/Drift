@@ -11,6 +11,7 @@
     "generate": "npx prisma generate",
     "build": "tsc",
     "start": "node dist/server.js",
+    "worker": "node dist/worker.js",
     "dev": "nodemon --watch src --exec ts-node src/server.ts",
     "clean": "rm -rf dist",
     "serve": "npm run clean && npm run build && npm start"

@@ -36,7 +36,8 @@ export async function executeRebalances(
     portfolio: any,
     adjustments: LLMAdjustment[],
     reason: string,
-    marketData: any
+    marketData: any,
+    totalValue: any,
 ): Promise<RebalanceResult> {
 
     console.log(`🤖 [${bot.name}] Starting rebalance cycle for SmartAccount: ${smartAccountId}`);
@@ -51,7 +52,7 @@ export async function executeRebalances(
             rebalanceResults: [],
             failedAdjustments: [],
             reason: "No adjustments to execute",
-            totalValue: 0,
+            totalValue: totalValue,
         };
     }
 
@@ -61,7 +62,7 @@ export async function executeRebalances(
     const failedAdjustments: any[] = [];
 
     // 🔹 Calculate total portfolio value from allocations + live market data
-    const totalValue = calculatePortfolioValue(portfolio, marketData);
+
     console.log(`💰 Computed portfolio total value: $${totalValue.toFixed(2)}`);
 
     if (totalValue === 0) {

@@ -27,6 +27,7 @@ interface Portfolio {
  * @param marketData - Current market prices and data
  * @param currentWeights - Calculated current vs target weights
  * @param recentRebalances - Recent rebalancing history
+ * @param totalValue
  * @param agentMode - Operating mode for the agent
  */
 export function buildLLMContext(
@@ -34,17 +35,16 @@ export function buildLLMContext(
     marketData?: MarketData,
     currentWeights?: CurrentWeight[],
     recentRebalances?: RecentRebalance[],
+    totalValue?: number,
     agentMode: string = "auto"
 ): string {
-
-    // Calculate current weights if not provided
-    const weights = currentWeights || calculateCurrentWeights(portfolio);
-
-    // Get recent rebalances if not provided
-    const rebalances = recentRebalances || getRecentRebalances(portfolio);
+    const weights = currentWeights || [];
+    const rebalances = recentRebalances || [];
+    const total = totalValue ? `$${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "Unknown";
 
     return `
 Portfolio: ${portfolio.name || "Unnamed Portfolio"}
+Total Value: ${total}
 
 Allocations (Target vs Current):
 ${weights.length > 0

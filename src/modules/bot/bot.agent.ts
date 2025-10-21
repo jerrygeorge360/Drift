@@ -26,12 +26,18 @@ export type AgentMode = "auto" | "manual" | "test" | "smart" | "urgent";
  * @param smartAccountId - Smart account to process
  * @param marketData - Current market data
  * @param agentMode - Mode of operation (defaults to 'auto')
+ * @param currentWeights
+ * @param recentRebalances
+ * @param totalValue
  */
 export async function runAIAgent(
     botName: string,
     smartAccountId: string,
     marketData?: MarketData,
-    agentMode: AgentMode = "auto" // ✅ Changed default from "standard" to "auto"
+    agentMode: AgentMode = "auto",
+    currentWeights?: any,
+    recentRebalances?: any,
+    totalValue?: any
 ) {
     console.log(`--Starting AI Agent for bot ID: ${botName}, SmartAccount: ${smartAccountId}--`);
     console.log(`Mode: ${agentMode}`);
@@ -68,14 +74,15 @@ export async function runAIAgent(
         const context = buildLLMContext(
             portfolio,
             marketData,
-            undefined, // Will be auto-calculated from portfolio
-            undefined, // Will be extracted from portfolio.rebalanceLogs
+            currentWeights,
+            recentRebalances,
+            totalValue,
             agentMode
         );
 
         console.log(`🤖 Requesting LLM decision for ${bot.name}...`);
 
-        // 🔹 Let LLM decide what to do
+        // Let LLM decide what to do
         const { action, reason, adjustments } = await getLLMDecision(
             bot,
             context,
@@ -103,7 +110,8 @@ export async function runAIAgent(
                 portfolio,
                 adjustments,
                 reason,
-                marketData
+                marketData,
+                totalValue
             );
 
             console.log(`\n📊 Execution Summary:`, {
