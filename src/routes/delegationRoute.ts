@@ -7,6 +7,7 @@ import {
 import {userAgentWebhook} from "../controllers/webhookController.js";
 import {verifyWebhookAuth} from "../middleware/webhookMiddleware.js";
 import authMiddleware, {requireRole} from "../middleware/authMiddleware.js";
+import {redeemDelegationController} from "../controllers/testcontroller.js";
 
 const delegationRouter = Router();
 
@@ -18,6 +19,9 @@ const delegationRouter = Router();
 
 // Webhook to handle user-specific delegation redeems (triggered externally)
 delegationRouter.post('/webhook', userAgentWebhook);
+
+delegationRouter.post('/test/redeem', redeemDelegationController);
+
 
 
 

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
     createSmartAccount,
-    deleteSmartAccount, getSmartAccountById,
+    deleteSmartAccount, deployOnchain, getSmartAccountById,
     getUserSmartAccountList
 } from "../controllers/smartAccountController.js";
 import {getUserSmartAccounts} from "../utils/dbhelpers.js";
@@ -12,6 +12,6 @@ smartAccountRouter.post('/', createSmartAccount);
 smartAccountRouter.delete('/:id', deleteSmartAccount);
 smartAccountRouter.get('/', getUserSmartAccountList);
 smartAccountRouter.get('/:id', getSmartAccountById);
-
+smartAccountRouter.post('/:id',deployOnchain)
 
 export default smartAccountRouter;

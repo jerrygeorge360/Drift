@@ -12,6 +12,8 @@ import {
     findSmartAccountById,
     getUserSmartAccounts
 } from "../utils/dbhelpers.js";
+import {deploySmartAccountOnChain} from "../deploy/firstDeploy.js";
+import {monadTestnet, sepolia} from "viem/chains";
 
 export interface AuthRequest extends Request {
     user?: { id: string; address: string };
@@ -42,8 +44,9 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
             deploySalt: "0x",
             signer: { account },
         });
+        const ownerAddress = account.address;
 
-        const createdSmartAccount = await createSmartAccountdb(userId,smartAccount.address,encrypted,walletAddress);
+        const createdSmartAccount = await createSmartAccountdb(userId,smartAccount.address,encrypted,walletAddress,ownerAddress);
         return res.status(200).json({message: "created smartAccount",account:createdSmartAccount});
 
     } catch (err) {
@@ -121,6 +124,52 @@ export const getSmartAccountById = async (req: AuthRequest, res: Response, next:
         }
 
         return res.status(200).json({ smartAccount });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const deployOnchain = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        if (!req.user?.id) {
+            return res.status(401).json({ message: "Unauthorized: User info missing" });
+        }
+
+        const userId = req.user.id;
+        const smartAccountId = req.params.id;
+
+        if (!smartAccountId) {
+            return res.status(400).json({ message: "Smart account ID is required" });
+        }
+
+        const smartAccount = await findSmartAccountById(smartAccountId);
+
+        if (!smartAccount || smartAccount.userId !== userId) {
+            return res.status(404).json({ message: "Smart account not found or not owned by you" });
+        }
+        const rpcUrl = process.env.PIMLICO_API_URL
+
+        if (!rpcUrl) {
+            return res.status(404).json({ message: "RPC url requiredequired" });
+        }
+        const receipt = await deploySmartAccountOnChain({
+            chain: monadTestnet, // or mainnet, polygon etc.
+            rpcUrl:rpcUrl,
+            smartAccountId: smartAccountId,
+        });
+
+        console.log("Deployment receipt:", receipt);
+        const transactionResult = receipt
+        let resultMessage: string;
+
+        if (transactionResult !== true) {
+            // transactionResult is a TransactionReceipt here
+            resultMessage = transactionResult.transactionHash;
+        } else {
+            resultMessage = "Smart account already deployed";
+        }
+
+        return res.status(200).json({ message: resultMessage });
     } catch (error) {
         next(error);
     }

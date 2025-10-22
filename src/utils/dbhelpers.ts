@@ -1,7 +1,7 @@
 import prisma from "../config/db.js";
 import {SmartAccount} from "viem/account-abstraction";
 import {decryptPrivateKey, encryptPrivateKey} from "./encryption.js";
-import {Bot} from "@prisma/client";
+import type { Bot as BotModel } from "@prisma/client";
 
 //
 // USER
@@ -53,7 +53,7 @@ export async function updateUserLastLogin(userId: string) {
 //
 
 // Create new smart account for user + create portfolio automatically (one-to-one)
-export async function createSmartAccountdb(userId: string, address: string, privateKey: string, portfolioName = "Default Portfolio") {
+export async function createSmartAccountdb(userId: string, address: string, privateKey: string, portfolioName = "Default Portfolio",ownerAddress:string) {
     return prisma.smartAccount.create({
         data: {
             userId,
@@ -64,6 +64,7 @@ export async function createSmartAccountdb(userId: string, address: string, priv
                     name: portfolioName,
                 },
             },
+            ownerAddress:ownerAddress,
         },
         include: {
             portfolio: true,
@@ -475,18 +476,19 @@ export async function updateBot(botName: string, data: Partial<{ name: string; d
 export async function getBotByName(
     name: string,
     withPrivateKey = false
-): Promise<(Bot & { privateKey?: `0x${string}` }) | null> {
+): Promise<(BotModel & { privateKey?: `0x${string}` }) | null> {
+    // Find the bot by name
     const bot = await prisma.bot.findUnique({ where: { name } });
     if (!bot) return null;
 
+    // If requested, decrypt the private key
     if (withPrivateKey && bot.encryptedKey) {
-        const decrypted = decryptPrivateKey(bot.encryptedKey);
+        const decrypted: `0x${string}` = decryptPrivateKey(bot.encryptedKey);
         return { ...bot, privateKey: decrypted };
     }
 
     return bot;
 }
-
 
 
 // Delete bot

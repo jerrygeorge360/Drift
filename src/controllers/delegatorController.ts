@@ -51,6 +51,7 @@ export const createDelegationController = async (req: AuthRequest, res: Response
         }
         const delegatorPrivateKey:`0x${string}` = decryptPrivateKey(smartAccount.privateKey);
         const delegatePrivateKey:`0x${string}`= bot.privateKey;
+        console.log(delegatorPrivateKey,delegatePrivateKey);
 
         const delegatorSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatorPrivateKey)
         const delegateSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatePrivateKey)

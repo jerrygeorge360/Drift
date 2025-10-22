@@ -31,6 +31,7 @@ model SmartAccount {
   privateKey    String     // encrypted private key
   address       String     @unique
   portfolio     Portfolio? // One-to-one relation
+  ownerAddress  String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 }

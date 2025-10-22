@@ -1,14 +1,15 @@
 import {
-    createDelegation,
     createExecution,
     ExecutionMode,
-    MetaMaskSmartAccount
+    MetaMaskSmartAccount,
+    createDelegation
 } from "@metamask/delegation-toolkit";
 import { DelegationManager } from "@metamask/delegation-toolkit/contracts";
-import { encodeFunctionData } from "viem";
-import { bundlerClient } from "../../controllers/clients.js";
+import { encodeFunctionData, http, createPublicClient } from "viem";
 import smartPortfolio from "../../contracts/abi/SmartPortfolio.json" with { type: 'json' };
 import { smartPortfolioScope } from "../../config/delegationConfig.js";
+import { createBundlerClient } from "viem/account-abstraction";
+import { monadTestnet as chain } from "viem/chains";
 
 // Type definitions
 interface RebalanceParams {
@@ -28,6 +29,7 @@ interface RedeemResult {
     status: "success" | "reverted";
     gasUsed?: bigint;
 }
+
 
 /**
  * Create a signed delegation
@@ -54,21 +56,32 @@ export const createSignedDelegation = async (
 };
 
 /**
- * Redeem delegation with full transaction receipt (FULL MODE)
- * Waits for transaction confirmation and returns complete details
+ * Redeem delegation with better gas handling + bundler pattern
  */
 export const redeemDelegation = async (
     signedDelegation: any,
     delegateSmartAccount: MetaMaskSmartAccount,
     smartPortfolioAddress: `0x${string}`,
-    rebalanceParams: RebalanceParams
+    rebalanceParams: RebalanceParams,
+    rpcUrl: string,
+    pimlicoClient: any,
+    paymasterClient?: any
 ): Promise<RedeemResult> => {
     try {
-        const delegations = [signedDelegation];
+        console.log(`🔄 Preparing rebalance delegation...`);
 
-        console.log(`🔄 Encoding rebalance calldata...`);
+        // 1️⃣ Initialize bundler + public client
+        const publicClient = createPublicClient({
+            chain,
+            transport: http(),
+        });
 
-        // Encode the executeRebalance function call
+        const bundlerClient = createBundlerClient({
+            client: publicClient,
+            transport: http(rpcUrl),
+        });
+
+        // 2️⃣ Encode the SmartPortfolio rebalance calldata
         const rebalanceCalldata = encodeFunctionData({
             abi: smartPortfolio.abi,
             functionName: "executeRebalance",
@@ -83,24 +96,39 @@ export const redeemDelegation = async (
             ],
         });
 
-        // Create execution targeting the SmartPortfolio contract
+        // 3️⃣ Create execution for the SmartPortfolio contract
         const executions = createExecution({
             target: smartPortfolioAddress,
-            value: 0n,
             callData: rebalanceCalldata,
         });
 
-        console.log(`📦 Encoding redemption calldata...`);
-
+        // 4️⃣ Encode redeemDelegations calldata
         const redeemDelegationCalldata = DelegationManager.encode.redeemDelegations({
-            delegations: [delegations],
+            delegations:[signedDelegation],
             modes: [ExecutionMode.SingleDefault],
             executions: [[executions]],
         });
 
-        console.log(`📤 Submitting user operation...`);
+        // 5️⃣ Handle gas estimation or Pimlico fallback
+        let gasParams: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint };
 
-        // Send user operation
+        try {
+            const pimlicoFee = await pimlicoClient.getUserOperationGasPrice();
+            console.log("✅ Pimlico gas price:", pimlicoFee);
+            gasParams = pimlicoFee.fast;
+        } catch (err) {
+            console.warn("⚠️ Pimlico gas price failed, using fallback:", err);
+            const gasEstimate = await publicClient.estimateFeesPerGas();
+            const buffer = 150n; // +50%
+            gasParams = {
+                maxFeePerGas: (gasEstimate.maxFeePerGas * buffer) / 100n,
+                maxPriorityFeePerGas: (gasEstimate.maxPriorityFeePerGas * buffer) / 100n,
+            };
+        }
+
+        console.log("🚀 Redeeming delegation with gas params:", gasParams);
+
+        // 6️⃣ Send the user operation
         const userOpHash = await bundlerClient.sendUserOperation({
             account: delegateSmartAccount,
             calls: [
@@ -109,105 +137,38 @@ export const redeemDelegation = async (
                     data: redeemDelegationCalldata,
                 },
             ],
+            maxFeePerGas: gasParams.maxFeePerGas,
+            maxPriorityFeePerGas: gasParams.maxPriorityFeePerGas,
+            paymaster: paymasterClient,
         });
 
-        console.log(`⏳ User Operation Hash: ${userOpHash}`);
-        console.log(`   Waiting for confirmation...`);
+        console.log("📤 Sent User Operation:", userOpHash);
+        console.log("⏳ Waiting for confirmation...");
 
-        // Wait for the user operation to be included in a transaction
-        const receipt = await bundlerClient.waitForUserOperationReceipt({
+        // 7️⃣ Wait for the user operation receipt
+        const { receipt } = await bundlerClient.waitForUserOperationReceipt({
             hash: userOpHash,
         });
 
-        console.log(`✅ Transaction confirmed!`);
-        console.log(`   TX Hash: ${receipt.receipt.transactionHash}`);
-        console.log(`   Block: ${receipt.receipt.blockNumber}`);
-        console.log(`   Status: ${receipt.receipt.status}`);
+        console.log("✅ Delegation redeemed!");
+        console.log("   TX Hash:", receipt.transactionHash);
+        console.log("   Block:", receipt.blockNumber);
+        console.log("   Status:", receipt.status);
 
-        // Check if transaction was successful
-        const status = receipt.receipt.status === "success" ? "success" : "reverted";
-
+        const status = receipt.status === "success" ? "success" : "reverted";
         if (status === "reverted") {
-            throw new Error(`Transaction reverted: ${receipt.receipt.transactionHash}`);
+            throw new Error(`Transaction reverted: ${receipt.transactionHash}`);
         }
 
         return {
             userOpHash,
-            transactionHash: receipt.receipt.transactionHash,
-            blockNumber: receipt.receipt.blockNumber,
+            transactionHash: receipt.transactionHash,
+            blockNumber: receipt.blockNumber,
             status,
-            gasUsed: receipt.receipt.gasUsed,
+            gasUsed: receipt.gasUsed,
         };
     } catch (error: any) {
         console.error("❌ Failed to redeem delegation:", error);
-
-        // Provide more context in the error
-        if (error.message?.includes("reverted")) {
-            throw new Error(`Transaction reverted: ${error.message}`);
-        } else if (error.message?.includes("timeout")) {
-            throw new Error(`Transaction timeout: User operation took too long to confirm`);
-        } else {
-            throw new Error(`Delegation redemption failed: ${error.message}`);
-        }
-    }
-};
-
-/**
- * Redeem delegation without waiting (FAST MODE)
- * Returns immediately with only the user operation hash
- */
-export const redeemDelegationFast = async (
-    signedDelegation: any,
-    delegateSmartAccount: MetaMaskSmartAccount,
-    smartPortfolioAddress: `0x${string}`,
-    rebalanceParams: RebalanceParams
-): Promise<`0x${string}`> => {
-    try {
-        const delegations = [signedDelegation];
-
-        // Encode the executeRebalance function call
-        const rebalanceCalldata = encodeFunctionData({
-            abi: smartPortfolio.abi,
-            functionName: "executeRebalance",
-            args: [
-                rebalanceParams.botAddress,
-                rebalanceParams.tokenIn,
-                rebalanceParams.tokenOut,
-                rebalanceParams.amountOut,
-                rebalanceParams.amountInMin,
-                rebalanceParams.swapPath,
-                rebalanceParams.reason,
-            ],
-        });
-
-        // Create execution targeting the SmartPortfolio contract
-        const executions = createExecution({
-            target: smartPortfolioAddress,
-            value: 0n,
-            callData: rebalanceCalldata,
-        });
-
-        const redeemDelegationCalldata = DelegationManager.encode.redeemDelegations({
-            delegations: [delegations],
-            modes: [ExecutionMode.SingleDefault],
-            executions: [[executions]],
-        });
-
-        // Send user operation and return immediately
-        return await bundlerClient.sendUserOperation({
-            account: delegateSmartAccount,
-            calls: [
-                {
-                    to: delegateSmartAccount.address,
-                    data: redeemDelegationCalldata,
-                },
-            ],
-        });
-    } catch (error: any) {
-        console.error("❌ Failed to redeem delegation (fast mode):", error);
         throw new Error(`Delegation redemption failed: ${error.message}`);
     }
 };
-
-// Export types
-export type { RebalanceParams, RedeemResult };

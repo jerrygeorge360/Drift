@@ -4,6 +4,7 @@ dotenv.config();
 
 console.log("PRIVATE_KEY_SECRET from env:", process.env.PRIVATE_KEY_SECRET);
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import {generatePrivateKey, privateKeyToAccount} from "viem/accounts";
 
 const ALGORITHM = "aes-256-cbc";
 const IV_LENGTH = 16;
@@ -41,5 +42,15 @@ export function decryptPrivateKey(encryptedText: string): `0x${string}` {
     return decrypted.toString("utf8") as `0x${string}`;
 }
 
-// @ts-ignore
-console.log(encryptPrivateKey(process.env.PRIVATE_KEY_SECRET))
+
+const botPrivateKey = generatePrivateKey()
+// Derive the wallet/account from the private key
+const botAccount = privateKeyToAccount(botPrivateKey);
+
+// Extract the bot's address
+const botAddress = botAccount.address;
+
+console.log("Bot Private Key:", botPrivateKey);
+console.log("Bot Address:", botAddress);
+console.log('encrypted',encryptPrivateKey(botPrivateKey))
+// console.log(decryptPrivateKey('RBsgBJ7Hqtjjj9jZRjuldc+Xn7EqyTswTv3ueM/TNrmcbLVH4WzGuUQXae7zx9Qmp7zKc7f+krvKq782zEbmUCmzDSC8S8HmLuBTF5Fr0T+5tFFsQfo7jkm/7dfMZlX6'))
