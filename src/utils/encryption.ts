@@ -18,7 +18,7 @@ if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) {
 
 const KEY = Buffer.from(ENCRYPTION_KEY, "utf-8");
 
-// Encrypt
+// Encrypt the private key of the smart account
 export function encryptPrivateKey(plainText: string): string {
     const iv = randomBytes(IV_LENGTH);
     const cipher = createCipheriv(ALGORITHM, KEY, iv);
@@ -29,7 +29,7 @@ export function encryptPrivateKey(plainText: string): string {
     return Buffer.concat([iv, encrypted]).toString(ENCODING);
 }
 
-// Decrypt
+// Decrypt the encrypted private key of the smart account
 export function decryptPrivateKey(encryptedText: string): `0x${string}` {
     const encryptedBuffer = Buffer.from(encryptedText, ENCODING);
     const iv = encryptedBuffer.subarray(0, IV_LENGTH);

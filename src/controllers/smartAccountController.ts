@@ -1,19 +1,19 @@
-import {Request,Response,NextFunction} from "express";
+import { Request, Response, NextFunction } from "express";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import {
     Implementation,
     toMetaMaskSmartAccount,
-} from "@metamask/delegation-toolkit";
-import {publicClient} from "./clients.js";
-import {encryptPrivateKey} from "../utils/encryption.js";
+} from "@metamask/smart-accounts-kit";
+import { publicClient } from "./clients.js";
+import { encryptPrivateKey } from "../utils/encryption.js";
 import {
     createSmartAccountdb,
     deleteSmartAccountById,
     findSmartAccountById,
     getUserSmartAccounts
 } from "../utils/dbhelpers.js";
-import {deploySmartAccountOnChain} from "../deploy/firstDeploy.js";
-import {monadTestnet, sepolia} from "viem/chains";
+import { deploySmartAccountOnChain } from "../deploy/firstDeploy.js";
+import { monadTestnet, sepolia } from "viem/chains";
 
 export interface AuthRequest extends Request {
     user?: { id: string; address: string };
@@ -30,11 +30,11 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
 
         const walletAddress = req.user.address;
         const userId = req.user.id;
+        const autoDeploy = req.body.autoDeploy === true; // Optional: auto-deploy on creation
 
         const privateKey = generatePrivateKey();
         const account = privateKeyToAccount(privateKey);
         const encrypted = encryptPrivateKey(privateKey);
-        console.log('Encrypted:', encrypted);
 
 
         const smartAccount = await toMetaMaskSmartAccount({
@@ -46,8 +46,58 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
         });
         const ownerAddress = account.address;
 
-        const createdSmartAccount = await createSmartAccountdb(userId,smartAccount.address,encrypted,walletAddress,ownerAddress);
-        return res.status(200).json({message: "created smartAccount",account:createdSmartAccount});
+        const createdSmartAccount = await createSmartAccountdb(userId, smartAccount.address, encrypted, walletAddress, ownerAddress);
+
+        // Auto-deploy if requested
+        let deploymentResult = null;
+        if (autoDeploy) {
+            try {
+                const rpcUrl = process.env.PIMLICO_API_URL;
+                if (!rpcUrl) {
+                    return res.status(500).json({ message: "RPC URL not configured" });
+                }
+
+                // Import the auto-deploy function
+                const { autoDeploySmartAccount } = await import("../modules/delegation/services.js");
+                const { createAASetup } = await import("../deploy/deployScript.js");
+                const { updateSmartAccountDeploymentStatus } = await import("../utils/dbhelpers.js");
+
+                // Get clients for deployment
+                const { pimlicoClient, paymasterClient } = await createAASetup({
+                    chain: monadTestnet,
+                    rpcUrl,
+                    smartAccountId: createdSmartAccount.id,
+                });
+
+                deploymentResult = await autoDeploySmartAccount(
+                    smartAccount,
+                    rpcUrl,
+                    pimlicoClient,
+                    paymasterClient
+                );
+
+                console.log("Auto-deployment result:", deploymentResult);
+
+                // Update database with deployment status
+                if (deploymentResult.deployed && deploymentResult.transactionHash) {
+                    await updateSmartAccountDeploymentStatus(
+                        createdSmartAccount.id,
+                        deploymentResult.transactionHash
+                    );
+                    console.log("Deployment status saved to database");
+                }
+            } catch (deployError: any) {
+                console.error("Auto-deployment failed:", deployError);
+                // Don't fail the entire request, just log the error
+                deploymentResult = { error: deployError.message };
+            }
+        }
+
+        return res.status(200).json({
+            message: "created smartAccount",
+            account: createdSmartAccount,
+            deployment: deploymentResult,
+        });
 
     } catch (err) {
         next(err);
@@ -154,7 +204,7 @@ export const deployOnchain = async (req: AuthRequest, res: Response, next: NextF
         }
         const receipt = await deploySmartAccountOnChain({
             chain: monadTestnet, // or mainnet, polygon etc.
-            rpcUrl:rpcUrl,
+            rpcUrl: rpcUrl,
             smartAccountId: smartAccountId,
         });
 
@@ -165,6 +215,14 @@ export const deployOnchain = async (req: AuthRequest, res: Response, next: NextF
         if (transactionResult !== true) {
             // transactionResult is a TransactionReceipt here
             resultMessage = transactionResult.transactionHash;
+
+            // Update database with deployment status
+            const { updateSmartAccountDeploymentStatus } = await import("../utils/dbhelpers.js");
+            await updateSmartAccountDeploymentStatus(
+                smartAccountId,
+                transactionResult.transactionHash
+            );
+            console.log("Deployment status saved to database");
         } else {
             resultMessage = "Smart account already deployed";
         }

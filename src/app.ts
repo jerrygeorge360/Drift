@@ -1,4 +1,3 @@
-
 import express from "express";
 import cors from "cors";
 import errorHandler from "./middleware/errorHandler.js";
@@ -15,8 +14,6 @@ import contractConfigRouter from "./routes/contractConfigRoute.js";
 import botRouter from "./routes/botRoute.js";
 import loginRouter from "./routes/loginRoute.js";
 import oracleRouter from "./routes/oracleRoute.js";
-
-
 // import blockchainRouter from "./routes/blockchainRoute.js";
 // import {adminJs, adminRouter} from "./admin/dashboard.js";
 import "./modules/jobs/agentQueue.js";
@@ -24,7 +21,7 @@ import {addAgentJob} from "./modules/jobs/agentQueue.js";
 const app = express();
 
 app.use(cors({
-    origin: 'http://localhost:5173',
+    origin: process.env.DOMAIN_URL,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -34,7 +31,7 @@ app.use(cors({
 
 app.use(express.json());
 app.use(requestLogger);
-// app.use(authMiddleware);
+
 
 // app.use(
     // adminJs.options.rootPath,
@@ -45,7 +42,6 @@ app.use(requestLogger);
 // Routes
 
 
-// SIWE login route
 
 app.use('/api/login', loginRouter);
 app.use('/api/users',authMiddleware,userRouter);

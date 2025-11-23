@@ -1,17 +1,17 @@
-import {Request, Response} from "express";
-import {MetaMaskSmartAccount} from "@metamask/delegation-toolkit"
+import { Request, Response } from "express";
+import { MetaMaskSmartAccount } from "@metamask/smart-accounts-kit"
 import {
     createSignedDelegation as delegationService
 } from "../modules/delegation/services.js";
 
-import {reconstructSmartAccount} from "../utils/delegationhelpers.js";
+import { reconstructSmartAccount } from "../utils/delegationhelpers.js";
 import {
     createDelegationdb,
     findSmartAccountById, getBotByName,
     getUserSmartAccounts,
     revokeDelegation
 } from "../utils/dbhelpers.js";
-import {decryptPrivateKey} from "../utils/encryption.js";
+import { decryptPrivateKey } from "../utils/encryption.js";
 
 export interface AuthRequest extends Request {
     user?: { id: string; address: string };
@@ -19,8 +19,6 @@ export interface AuthRequest extends Request {
 
 export const createDelegationController = async (req: AuthRequest, res: Response) => {
     try {
-        const data = req.body;
-
 
         if (!req.user?.address || !req.user?.id) {
             return res.status(401).json({ message: "Unauthorized: User info missing" });
@@ -38,30 +36,29 @@ export const createDelegationController = async (req: AuthRequest, res: Response
         }
 
         const smartAccount = await findSmartAccountById(smartAccountId)
-        console.log(smartAccount);
-        if(!smartAccount || !smartAccount.privateKey ) {
-            throw('No smartAccount or privateKey failed')
+        if (!smartAccount || !smartAccount.privateKey) {
+            throw ('No smartAccount or privateKey failed')
         }
         // collect user ids and query for the keys
         // deencrypt the keys
 
-        const bot = await getBotByName('Drift',true)
-        if(!bot || !bot.privateKey){
+        const bot = await getBotByName('Drift', true)
+        if (!bot || !bot.privateKey) {
             return res.status(401).json({ message: "No bot or privateKey failed" });
         }
-        const delegatorPrivateKey:`0x${string}` = decryptPrivateKey(smartAccount.privateKey);
-        const delegatePrivateKey:`0x${string}`= bot.privateKey;
-        console.log(delegatorPrivateKey,delegatePrivateKey);
+        const delegatorPrivateKey: `0x${string}` = decryptPrivateKey(smartAccount.privateKey);
+        const delegatePrivateKey: `0x${string}` = bot.privateKey;
 
         const delegatorSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatorPrivateKey)
         const delegateSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatePrivateKey)
-
+        const smartPorfolioAddress = `0x065A0af7bfF900deB2Bcb7Ae3fc6e1dD52579aC7`
 
 
         // Create and sign the delegation
         const signature = await delegationService(
             delegatorSmartAccount,
             delegateSmartAccount,
+            smartPorfolioAddress
         );
         if (!smartAccountId || !delegatorPrivateKey || !delegatePrivateKey || !signature) {
             return res.status(400).json({ message: "Missing or invalid fields" });
@@ -119,7 +116,7 @@ export const revokeDelegationController = async (req: AuthRequest, res: Response
             message: "Delegation revoked successfully",
         });
 
-    }catch (error) {
+    } catch (error) {
         console.error("Error revoking delegation:", error);
         // @ts-ignore
         return res.status(500).json({

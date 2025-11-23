@@ -1,6 +1,6 @@
 import prisma from "../config/db.js";
-import {SmartAccount} from "viem/account-abstraction";
-import {decryptPrivateKey, encryptPrivateKey} from "./encryption.js";
+import { SmartAccount } from "viem/account-abstraction";
+import { decryptPrivateKey, encryptPrivateKey } from "./encryption.js";
 import type { Bot as BotModel } from "@prisma/client";
 
 //
@@ -53,7 +53,7 @@ export async function updateUserLastLogin(userId: string) {
 //
 
 // Create new smart account for user + create portfolio automatically (one-to-one)
-export async function createSmartAccountdb(userId: string, address: string, privateKey: string, portfolioName = "Default Portfolio",ownerAddress:string) {
+export async function createSmartAccountdb(userId: string, address: string, privateKey: string, portfolioName = "Default Portfolio", ownerAddress: string) {
     return prisma.smartAccount.create({
         data: {
             userId,
@@ -64,7 +64,7 @@ export async function createSmartAccountdb(userId: string, address: string, priv
                     name: portfolioName,
                 },
             },
-            ownerAddress:ownerAddress,
+            ownerAddress: ownerAddress,
         },
         include: {
             portfolio: true,
@@ -114,6 +114,21 @@ export async function findSmartAccountById(id: string) {
     });
 }
 
+// Update smart account deployment status
+export async function updateSmartAccountDeploymentStatus(
+    id: string,
+    deploymentTxHash: string
+) {
+    return prisma.smartAccount.update({
+        where: { id },
+        data: {
+            deployed: true,
+            deployedAt: new Date(),
+            deploymentTxHash,
+        },
+    });
+}
+
 
 //
 // DELEGATION
@@ -123,7 +138,7 @@ export async function createDelegationdb(data: {
     smartAccountId: string;
     delegatorSmartAccount: SmartAccount;
     delegateSmartAccount: SmartAccount;
-    signature:any;
+    signature: any;
     expiresAt?: Date;
 }) {
     return prisma.delegation.create({
@@ -268,23 +283,23 @@ export async function deleteAllPortfolioAllocations(portfolioId: any) {
 export async function createRebalanceLog(
     data:
         | {
-        portfolioId: string;
-        tokenInId: string;
-        tokenOutId: string;
-        amountIn: number;
-        amountOut: number;
-        reason: string;
-        executor: string;
-    }
+            portfolioId: string;
+            tokenInId: string;
+            tokenOutId: string;
+            amountIn: number;
+            amountOut: number;
+            reason: string;
+            executor: string;
+        }
         | {
-        portfolioId: string;
-        tokenInId: string;
-        tokenOutId: string;
-        amountIn: number;
-        amountOut: number;
-        reason: string;
-        executor: string;
-    }[]
+            portfolioId: string;
+            tokenInId: string;
+            tokenOutId: string;
+            amountIn: number;
+            amountOut: number;
+            reason: string;
+            executor: string;
+        }[]
 ) {
     if (Array.isArray(data)) {
         // 🧩 Bulk insert (createMany only accepts scalar fields — no nested connect)

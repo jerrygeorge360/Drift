@@ -26,8 +26,8 @@ export const siweLogin = async (req: Request, res: Response) => {
         const user = await findOrCreateUser(data.address);
         await updateUserLastLogin(user.id);
 
-        // Issue JWT with wallet address
-        const token = jwt.sign({ address: user.walletAddress,userId: user.id }, secret, { expiresIn: "1h" });
+        // Issue JWT with wallet address(expires in 10hrs)
+        const token = jwt.sign({ address: user.walletAddress,userId: user.id }, secret, { expiresIn: "10h" });
 
         res.json({ token});
     } catch (error) {

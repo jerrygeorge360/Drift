@@ -1,45 +1,29 @@
-import {reconstructSmartAccount} from "../../utils/delegationhelpers.js";
-import {redeemDelegation} from "../delegation/services.js";
-import {getBotByName, getDelegationById} from "../../utils/dbhelpers.js";
-import {decryptPrivateKey} from "../../utils/encryption.js";
-import {createPimlicoClient} from "permissionless/clients/pimlico";
-import {monadTestnet} from "viem/chains";
-import {http} from "viem";
-import {createPaymasterClient} from "viem/account-abstraction";
+import { monadTestnet } from "viem/chains";
+import { http } from "viem";
+import { createPaymasterClient } from "viem/account-abstraction";
+import { createPimlicoClient } from "permissionless/clients/pimlico";
+import { reconstructSmartAccount } from "../../utils/delegationhelpers.js";
+import { redeemDelegation } from "../delegation/services.js";
+import { getBotByName, getDelegationById } from "../../utils/dbhelpers.js";
+import { RebalanceParams } from "./bot.types.js";
 
-export type RebalanceParams = {
-    botAddress: string;
-    tokenIn: string;
-    tokenOut: string;
-    amountIn: bigint;
-    amountOutMin: bigint;
-    swapPath: string[];
-    reason: string;
-}
-
-
-export async function redeemDelegationService(smartAccountID: string, reBalance: {
-    botAddress: any;
-    tokenIn: any;
-    tokenOut: any;
-    amountOut: bigint;
-    amountInMin: bigint;
-    swapPath: any[];
-    reason: string
-}) {
+        
+export async function redeemDelegationService(smartAccountID: string, reBalance: RebalanceParams) {
+    
     if (!smartAccountID) {
         throw new Error("Smart account id is required");
     }
 
-    // Fetch delegations for all smart accounts
+    // Fetch delegation for this smart account
     const delegation = await getDelegationById(smartAccountID);
 
     if (!delegation) {
         throw new Error("No stored delegation found in this smart account,seeing this means there is a bug in the system");
     }
 
+
     // Find the first delegation with a valid signed signature
- const delegationRecord = delegation.signature ? delegation : null;
+    const delegationRecord = delegation.signature ? delegation : null;
 
 
     if (!delegationRecord) {
@@ -47,7 +31,7 @@ export async function redeemDelegationService(smartAccountID: string, reBalance:
     }
 
     const signedDelegation = delegationRecord.signature;
-    const bot = await getBotByName('Drift',true);
+    const bot = await getBotByName('Drift', true);
     if (!bot || !bot.encryptedKey) throw new Error('Bot not found or missing key');
     // get this from the bot database
     const delegatePrivateKey: `0x${string}` | undefined = bot.privateKey;
@@ -56,11 +40,14 @@ export async function redeemDelegationService(smartAccountID: string, reBalance:
     }
 
     const delegateSmartAccount = await reconstructSmartAccount(delegatePrivateKey);
-    const rpcUrl='https://api.pimlico.io/v2/10143/rpc?apikey=pim_WUqNB2JADYLUFKAY6TABdF'
+    const rpcUrl = process.env.PIMLICO_API_URL;
+    if (!rpcUrl) {
+        throw new Error("PIMLICO_API_URL environment variable is missing");
+    }
     // Redeem the delegation using the bot's smart account and stored signed delegation
     let pimlicoClient;
     pimlicoClient = createPimlicoClient({
-        chain:monadTestnet,
+        chain: monadTestnet,
         transport: http(rpcUrl),
     });
     // Paymaster client
@@ -69,5 +56,7 @@ export async function redeemDelegationService(smartAccountID: string, reBalance:
     });
 
 
-    return await redeemDelegation(signedDelegation, delegateSmartAccount,delegateSmartAccount.address,reBalance,rpcUrl,pimlicoClient,paymasterClient);
+    return await redeemDelegation(signedDelegation, delegateSmartAccount, '0x065A0af7bfF900deB2Bcb7Ae3fc6e1dD52579aC7', reBalance, rpcUrl, pimlicoClient, paymasterClient);
 }
+
+// TODO : write a db helper that would get the smart contract address for a given bot name instead of hardcoding it.

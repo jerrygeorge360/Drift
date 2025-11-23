@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { addAgentJob} from "../modules/jobs/agentQueue.js";
 import { analyzePortfolio } from "../modules/bot/bot.analyze.js";
 import db from "../config/db.js";
+import {redeemDelegationService} from "../modules/bot/bot.delegation.js";
 
 
 
@@ -35,7 +36,7 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
         }
 
         // Step 1: Fetch all smart accounts with portfolios + allocations
-        console.log('🔍 Fetching smart accounts with portfolios...');
+        console.log('Fetching smart accounts with portfolios...');
         const smartAccounts = await db.smartAccount.findMany({
             where: {
                 portfolio: {
@@ -172,33 +173,3 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
         });
     }
 };
-
-router.post("/redeem/test", async (req: Request, res: Response) => {
-    try {
-        const smartAccountId = "f24a292e-d164-4416-b5cb-849693403d8b";
-
-        const rebalanceParams = {
-            botAddress: "0x1235aC2B678202802b5071a7AadF7efe0E172d0E",
-            tokenIn: "0x2222222222222222222222222222222222222222",   // USDC
-            tokenOut: "0x3333333333333333333333333333333333333333",  // USDT
-            amountOut: BigInt("1000000000000000000"),  // 1 USDT
-            amountInMin: BigInt("980000000000000000"), // 0.98 USDC
-            swapPath: [
-                "0x3333333333333333333333333333333333333333",
-                "0x2222222222222222222222222222222222222222",
-            ],
-            reason: "hello",
-        };
-
-        const txResult = await redeemDelegationService(smartAccountId, rebalanceParams);
-
-        console.log("Transaction result:", txResult);
-        return res.status(200).json({
-            message: "Redeem delegation executed",
-            result: txResult,
-        });
-    } catch (error: any) {
-        console.error("Redeem test error:", error);
-        return res.status(500).json({ error: error.message });
-    }
-});

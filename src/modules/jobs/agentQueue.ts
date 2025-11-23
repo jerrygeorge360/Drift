@@ -74,7 +74,7 @@ const validateJobData = (data: any) => {
 };
 // Create worker with enhanced error handling
 export const agentWorker = new Worker("ai-agent-queue", async job => {
-       console.log(job)
+       console.log(job)// should print out 'process-agent'
 
         const startTime = Date.now();
         const { botName, smartAccountId, marketData, agentMode,currentWeights,recentRebalances,totalValue } = job.data;

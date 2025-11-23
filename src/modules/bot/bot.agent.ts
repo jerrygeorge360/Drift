@@ -6,7 +6,7 @@ import {
 import { buildLLMContext } from "./bot.context.js";
 import { getLLMDecision } from "./bot.decision.js";
 import { executeRebalances } from "./bot.execution.js";
-
+import {executeRebalances as mockexec} from './bot.mock.execution.js'
 export interface MarketData {
     [id: string]: {
         usd: number;
@@ -80,7 +80,7 @@ export async function runAIAgent(
             agentMode
         );
 
-        console.log(`🤖 Requesting LLM decision for ${bot.name}...`);
+        console.log(`Requesting LLM decision for ${bot.name}...`);
 
         // Let LLM decide what to do
         const { action, reason, adjustments } = await getLLMDecision(
@@ -89,8 +89,8 @@ export async function runAIAgent(
             agentMode
         );
 
-        console.log(`💡 LLM Decision: ${action}`);
-        console.log(`📝 Reason: ${reason}`);
+        console.log(`LLM Decision: ${action}`);
+        console.log(`Reason: ${reason}`);
 
         if (adjustments && adjustments.length > 0) {
             console.log(`🔄 Adjustments: ${adjustments.length} planned`);
@@ -102,7 +102,7 @@ export async function runAIAgent(
         let result;
 
         if (action === "rebalance") {
-            console.log(`🔄 Executing rebalance with ${adjustments?.length || 0} adjustments...`);
+            console.log(`Executing rebalance with ${adjustments?.length || 0} adjustments...`);
 
             result = await executeRebalances(
                 bot,
@@ -114,7 +114,7 @@ export async function runAIAgent(
                 totalValue
             );
 
-            console.log(`\n📊 Execution Summary:`, {
+            console.log(`\nExecution Summary:`, {
                 status: result.status,
                 executed: result.executedCount,
                 failed: result.failedCount,
@@ -160,7 +160,7 @@ export async function runAIAgent(
         console.error(`❌ [${bot.name}] Agent run failed:`, error.message);
         console.error(error.stack);
 
-        // ✅ Better error handling for status update
+        // Better error handling for status update
         try {
             await updateBot(botName, { status: "error" });
         } catch (updateError: any) {

@@ -19,8 +19,10 @@ interface IUniswapV2Router {
         uint deadline
     ) external returns (uint[] memory amounts);
 
-    function getAmountsOut(uint amountIn, address[] calldata path)
-    external view returns (uint[] memory amounts);
+    function getAmountsOut(
+        uint amountIn,
+        address[] calldata path
+    ) external view returns (uint[] memory amounts);
 }
 
 /// ---------------------------------------------
@@ -32,7 +34,11 @@ contract SmartPortfolio is Ownable, ReentrancyGuard {
     /// ------------------------
     /// Events
     /// ------------------------
-    event DynamicAllocationSet(address indexed user, address[] tokens, uint16[] percents);
+    event DynamicAllocationSet(
+        address indexed user,
+        address[] tokens,
+        uint16[] percents
+    );
     event RebalanceExecuted(
         address indexed user,
         address indexed executor,
@@ -83,7 +89,10 @@ contract SmartPortfolio is Ownable, ReentrancyGuard {
     /// ------------------------
     /// User-facing: set allocation (dynamic version)
     /// ------------------------
-    function setAllocation(address[] calldata tokens, uint16[] calldata percents) external {
+    function setAllocation(
+        address[] calldata tokens,
+        uint16[] calldata percents
+    ) external {
         require(tokens.length == percents.length, "length mismatch");
         require(tokens.length > 0, "no tokens");
 
@@ -108,14 +117,18 @@ contract SmartPortfolio is Ownable, ReentrancyGuard {
     /// @notice Remove allocation (reset to 0)
     function removeAllocation() external {
         delete _userAllocations[msg.sender];
-        emit DynamicAllocationSet(msg.sender, new address[](0), new uint16[](0));
+        emit DynamicAllocationSet(
+            msg.sender,
+            new address[](0),
+            new uint16[](0)
+        );
     }
 
     /// ------------------------
     /// Bot-triggered rebalance
     /// ------------------------
     function executeRebalance(
-        address executor,           // informational only
+        address executor, // informational only
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
@@ -128,7 +141,10 @@ contract SmartPortfolio is Ownable, ReentrancyGuard {
         require(user != address(0), "user=0");
         require(amountIn > 0, "amountIn=0");
         require(path.length >= 2, "path length");
-        require(path[0] == tokenIn && path[path.length - 1] == tokenOut, "path mismatch");
+        require(
+            path[0] == tokenIn && path[path.length - 1] == tokenOut,
+            "path mismatch"
+        );
 
         // 1) Pull tokens from user's smart account
         IERC20(tokenIn).safeTransferFrom(user, address(this), amountIn);
@@ -171,16 +187,17 @@ contract SmartPortfolio is Ownable, ReentrancyGuard {
     /// ------------------------
 
     /// @notice Get estimated output from router
-    function getEstimatedOut(uint256 amountIn, address[] calldata path)
-    external view returns (uint256[] memory)
-    {
+    function getEstimatedOut(
+        uint256 amountIn,
+        address[] calldata path
+    ) external view returns (uint256[] memory) {
         return router.getAmountsOut(amountIn, path);
     }
 
     /// @notice Get user's dynamic allocation
-    function getAllocation(address user)
-    external view returns (TokenAllocation[] memory)
-    {
+    function getAllocation(
+        address user
+    ) external view returns (TokenAllocation[] memory) {
         return _userAllocations[user];
     }
 
@@ -213,17 +230,19 @@ contract SmartPortfolio is Ownable, ReentrancyGuard {
         if (amountIn == 0) return (false, "Amount is zero");
         if (path.length < 2) return (false, "Invalid path length");
         if (path[0] != tokenIn) return (false, "Path start mismatch");
-        if (path[path.length - 1] != tokenOut) return (false, "Path end mismatch");
+        if (path[path.length - 1] != tokenOut)
+            return (false, "Path end mismatch");
 
         // Check expected output
-        try router.getAmountsOut(amountIn, path) returns (uint[] memory amounts) {
+        try router.getAmountsOut(amountIn, path) returns (
+            uint[] memory amounts
+        ) {
             if (amounts[amounts.length - 1] < amountOutMin) {
                 return (false, "Slippage too high");
             }
         } catch {
             return (false, "Router estimation failed");
         }
-
         return (true, "Valid");
     }
 

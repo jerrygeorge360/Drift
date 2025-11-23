@@ -44,17 +44,17 @@ export async function executeRebalances(
     bot: any,
     smartAccountId: string,
     portfolio: any,
-    adjustments: LLMAdjustment[]=s,
+    adjustments: LLMAdjustment[],
     reason: string,
     marketData: any,
     totalValue: any,
 ): Promise<RebalanceResult> {
 
-    console.log(`🤖 [${bot.name}] Starting rebalance cycle for SmartAccount: ${smartAccountId}`);
+    console.log(`[${bot.name}] Starting rebalance cycle for SmartAccount: ${smartAccountId}`);
 
     // Validate inputs
     if (!adjustments || adjustments.length === 0) {
-        console.log(`⚠️ No adjustments provided, skipping execution`);
+        console.log(`No adjustments provided, skipping execution`);
         return {
             status: "no_adjustments",
             executedCount: 0,
@@ -71,12 +71,12 @@ export async function executeRebalances(
     const successfulRebalances: any[] = [];
     const failedAdjustments: any[] = [];
 
-    // 🔹 Calculate total portfolio value from allocations + live market data
+    //Calculate total portfolio value from allocations + live market data
 
-    console.log(`💰 Computed portfolio total value: $${totalValue.toFixed(2)}`);
+    console.log(`Computed portfolio total value: $${totalValue.toFixed(2)}`);
 
     if (totalValue === 0) {
-        console.error(`❌ Portfolio has zero value, cannot rebalance`);
+        console.error(`Portfolio has zero value, cannot rebalance`);
         return {
             status: "failed",
             executedCount: 0,
@@ -91,10 +91,10 @@ export async function executeRebalances(
         };
     }
 
-    // 🔹 Process each adjustment
+    // Process each adjustment
     for (let i = 0; i < adjustments.length; i++) {
         const adj = adjustments[i];
-        console.log(`\n📊 Processing adjustment ${i + 1}/${adjustments.length}:`);
+        console.log(`\nProcessing adjustment ${i + 1}/${adjustments.length}:`);
         console.log(`   ${adj.tokenOut} → ${adj.tokenIn} (${adj.percentage}%)`);
 
         try {
@@ -161,8 +161,8 @@ export async function executeRebalances(
                 amountOut: amountOutWei,
                 amountInMin: minAmountInWei,
                 swapPath: [
-                    tokenOutAddresss,
-                    tokenInAddress
+                      tokenInAddress,   // ✅ Token you're selling (source)
+                    tokenOutAddress 
                 ],
                 reason: adj.reason || reason,
             };
@@ -236,7 +236,7 @@ export async function executeRebalances(
         status = "partial";
     }
 
-    console.log(`\n📈 Rebalance Summary:`);
+    console.log(`\nRebalance Summary:`);
     console.log(`   Total: ${totalCount}`);
     console.log(`   Successful: ${executedCount}`);
     console.log(`   Failed: ${failedCount}`);
@@ -299,35 +299,35 @@ function findTokenAddress(portfolio: any, tokenSymbol: string): string | null {
     return allocation?.token?.address || null;
 }
 
-const mar = {
-    "usd-coin": {
-        usd: 1,
-        usd_market_cap: 76770942445.89798,
-        usd_24h_vol: 21189195729.347694,
-        usd_24h_change: -0.002882751937147867,
-        last_updated_at: 1761126649,
-    },
-};
+// const mar = {
+//     "usd-coin": {
+//         usd: 1,
+//         usd_market_cap: 76770942445.89798,
+//         usd_24h_vol: 21189195729.347694,
+//         usd_24h_change: -0.002882751937147867,
+//         last_updated_at: 1761126649,
+//     },
+// };
 // const newbot = {'name':"Drift",'address':'0x1235aC2B678202802b5071a7AadF7efe0E172d0E'}
 // const work = await executeRebalances(newbot,"f24a292e-d164-4416-b5cb-849693403d8b","1db590d1-8c8f-48ed-b383-eb12378edeb8",s,'fa',mar,120)
 // console.log(work);
 
 // const txResult = await redeemDelegationService(smartAccountId, rebalanceParams);
 
-const txResult = await redeemDelegationService(
-    "f24a292e-d164-4416-b5cb-849693403d8b",
-    {
-        botAddress: "0x1235aC2B678202802b5071a7AadF7efe0E172d0E",
-        tokenIn: "0x2222222222222222222222222222222222222222",   // USDC address
-        tokenOut: "0x3333333333333333333333333333333333333333",  // USDT address
-        amountOut: BigInt("1000000000000000000"),  // 1 USDT (in wei)
-        amountInMin: BigInt("980000000000000000"), // 0.98 USDC (in wei)
-        swapPath: [
-            "0x3333333333333333333333333333333333333333",
-            "0x2222222222222222222222222222222222222222",
-        ],
-        reason: "hello",
-    }
-);
-
-console.log(txResult);
+// const txResult = await redeemDelegationService(
+//     "f24a292e-d164-4416-b5cb-849693403d8b",
+//     {
+//         botAddress: "0x1235aC2B678202802b5071a7AadF7efe0E172d0E",
+//         tokenIn: "0x2222222222222222222222222222222222222222",   // USDC address
+//         tokenOut: "0x3333333333333333333333333333333333333333",  // USDT address
+//         amountOut: BigInt("1000000000000000000"),  // 1 USDT (in wei)
+//         amountInMin: BigInt("980000000000000000"), // 0.98 USDC (in wei)
+//         swapPath: [
+//             "0x3333333333333333333333333333333333333333",
+//             "0x2222222222222222222222222222222222222222",
+//         ],
+//         reason: "hello",
+//     }
+// );
+//
+// console.log(txResult);

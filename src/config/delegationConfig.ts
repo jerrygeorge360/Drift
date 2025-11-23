@@ -1,5 +1,5 @@
 // SmartPortfolio Contract Address
-const SMART_PORTFOLIO_ADDRESS: `0x${string}` = "0x065A0af7bfF900deB2Bcb7Ae3fc6e1dD52579aC7";
+export const SMART_PORTFOLIO_ADDRESS: `0x${string}` = "0x065A0af7bfF900deB2Bcb7Ae3fc6e1dD52579aC7";
 
 // Token addresses (Testnet)
 const TOKENS = {

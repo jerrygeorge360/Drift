@@ -13,11 +13,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
   id            String         @id @default(uuid())
   walletAddress String         @unique
-  smartAccounts SmartAccount[]  // One-to-many
+  smartAccounts SmartAccount[] // One-to-many
   role          String         @default("user")
   lastLogin     DateTime?
   createdAt     DateTime       @default(now())
@@ -25,15 +24,18 @@ model User {
 }
 
 model SmartAccount {
-  id            String     @id @default(uuid())
-  user          User       @relation(fields: [userId], references: [id])
-  userId        String
-  privateKey    String     // encrypted private key
-  address       String     @unique
-  portfolio     Portfolio? // One-to-one relation
-  ownerAddress  String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id               String     @id @default(uuid())
+  user             User       @relation(fields: [userId], references: [id])
+  userId           String
+  privateKey       String // encrypted private key
+  address          String     @unique
+  portfolio        Portfolio? // One-to-one relation
+  ownerAddress     String?
+  deployed         Boolean    @default(false) // Track if deployed on-chain
+  deployedAt       DateTime? // When it was deployed
+  deploymentTxHash String? // Transaction hash of deployment
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 }
 
 model Delegation {
@@ -41,9 +43,9 @@ model Delegation {
   smartAccountId   String
   delegatorAddress String
   delegateAddress  String
-  expiresAt        DateTime?  // optional expiration
+  expiresAt        DateTime? // optional expiration
   revoked          Boolean   @default(false)
-  signature        Json     // Signed delegation message (off-chain signature)
+  signature        Json // Signed delegation message (off-chain signature)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -51,30 +53,28 @@ model Delegation {
   @@index([delegateAddress])
 }
 
-
 model Portfolio {
-  id             String       @id @default(uuid())
-  smartAccount   SmartAccount @relation(fields: [smartAccountId], references: [id], onDelete: Cascade)
-  smartAccountId String       @unique
+  id             String                @id @default(uuid())
+  smartAccount   SmartAccount          @relation(fields: [smartAccountId], references: [id], onDelete: Cascade)
+  smartAccountId String                @unique
   name           String
   allocations    PortfolioAllocation[]
   rebalanceLogs  RebalanceLog[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 }
 
-
 model Token {
-  id              String          @id @default(uuid())
-  symbol          String          @unique
-  name            String
-  address         String          @unique
-  decimals        Int
-  allocations     PortfolioAllocation[]
-  rebalanceLogsIn  RebalanceLog[] @relation("TokenIn")
-  rebalanceLogsOut RebalanceLog[] @relation("TokenOut")
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id               String                @id @default(uuid())
+  symbol           String                @unique
+  name             String
+  address          String                @unique
+  decimals         Int
+  allocations      PortfolioAllocation[]
+  rebalanceLogsIn  RebalanceLog[]        @relation("TokenIn")
+  rebalanceLogsOut RebalanceLog[]        @relation("TokenOut")
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 }
 
 model PortfolioAllocation {
@@ -83,8 +83,8 @@ model PortfolioAllocation {
   portfolioId String
   token       Token     @relation(fields: [tokenId], references: [id])
   tokenId     String
-  amount      Float     @default(0)// actual number of tokens user holds
-  percent     Float     // target allocation, e.g., 30.5 for 30.5%
+  amount      Float     @default(0) // actual number of tokens user holds
+  percent     Float // target allocation, e.g., 30.5 for 30.5%
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -92,42 +92,42 @@ model PortfolioAllocation {
 }
 
 model RebalanceLog {
-  id            String    @id @default(uuid())
-  portfolio     Portfolio @relation(fields: [portfolioId], references: [id])
-  portfolioId   String
+  id          String    @id @default(uuid())
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id])
+  portfolioId String
 
-  tokenIn       Token     @relation("TokenIn", fields: [tokenInId], references: [id])
-  tokenInId     String
+  tokenIn   Token  @relation("TokenIn", fields: [tokenInId], references: [id])
+  tokenInId String
 
-  tokenOut      Token     @relation("TokenOut", fields: [tokenOutId], references: [id])
-  tokenOutId    String
+  tokenOut   Token  @relation("TokenOut", fields: [tokenOutId], references: [id])
+  tokenOutId String
 
-  amountIn      Float     // Store in base units or converted to decimals
-  amountOut     Float
-  reason        String
-  executor      String    // Could be bot or user address
-  createdAt     DateTime  @default(now())
+  amountIn  Float // Store in base units or converted to decimals
+  amountOut Float
+  reason    String
+  executor  String // Could be bot or user address
+  createdAt DateTime @default(now())
 }
 
 model ContractConfig {
-  id               String   @id @default(uuid())
-  contractAddress  String   @unique
-  network          String
-  owner            String
-  paused           Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              String   @id @default(uuid())
+  contractAddress String   @unique
+  network         String
+  owner           String
+  paused          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Bot {
-  id           String   @id @default(uuid())
-  name         String   @unique
+  id           String    @id @default(uuid())
+  name         String    @unique
   address      String
   description  String?
-  encryptedKey String?  // Encrypted private key (AES-256)
-  role         String   @default("bot")
+  encryptedKey String? // Encrypted private key (AES-256)
+  role         String    @default("bot")
   lastRunAt    DateTime?
-  status       String   // e.g., 'active', 'paused'
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  status       String // e.g., 'active', 'paused'
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }

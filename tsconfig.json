@@ -1,9 +1,7 @@
-
-
 {
   "compilerOptions": {
-    "target": "es2020",         // allows async/await
-    "module": "nodenext",         // allows top-level await
+    "target": "es2020", // allows async/await
+    "module": "nodenext", // allows top-level await
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
@@ -12,8 +10,15 @@
     "moduleResolution": "nodenext",
     "resolveJsonModule": true,
     "allowJs": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "isolatedModules": true
   },
-  "include": ["src", "scripts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src",
+    "scripts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

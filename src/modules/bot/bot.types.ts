@@ -82,3 +82,13 @@ export interface AgentDecision {
     confidence?: number;
     timestamp: string;
 }
+
+export type RebalanceParams = {
+    botAddress: string;
+    tokenIn: string;
+    tokenOut: string;
+    amountIn: bigint;
+    amountOutMin: bigint;
+    swapPath: string[];
+    reason: string;
+}
