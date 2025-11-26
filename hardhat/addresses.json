@@ -9,5 +9,9 @@
   },
   "SmartPortfolioModule": {
     "Portfolio": "0x0165878A594ca255338adfa4d48449f69242Eb8F"
+  },
+  "TestTokensModule": {
+    "TestDAI": "0xCC0DF0CD04526faB0B3d396456257D059f439548",
+    "TestWETH": "0xb1F65f83C94Fe67EbA77299632e891C39c163Cf3"
   }
 }

@@ -20,3 +20,7 @@
 /coverage
 
 .idea
+
+/ignition/deployments
+TEST_TOKENS_GUIDE.md
+verification/
