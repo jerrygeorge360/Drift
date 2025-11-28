@@ -14,3 +14,12 @@ yarn-error.log*
 .idea/
 prisma
 dist
+
+# Hardhat-specific ignores
+hardhat/artifacts
+hardhat/cache
+hardhat/types
+hardhat/coverage
+hardhat/ignition/deployments
+hardhat/TEST_TOKENS_GUIDE.md
+hardhat/verification/
