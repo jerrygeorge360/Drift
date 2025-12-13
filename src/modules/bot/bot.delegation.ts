@@ -6,19 +6,23 @@ import { reconstructSmartAccount } from "../../utils/delegationhelpers.js";
 import { redeemDelegation } from "../delegation/services.js";
 import { getBotByName, getDelegationById } from "../../utils/dbhelpers.js";
 import { RebalanceParams } from "./bot.types.js";
+import { getDelegationBySmartAccountId } from "../../utils/dbhelpers.js";
 
-        
+
 export async function redeemDelegationService(smartAccountID: string, reBalance: RebalanceParams) {
-    
+
     if (!smartAccountID) {
         throw new Error("Smart account id is required");
     }
 
     // Fetch delegation for this smart account
-    const delegation = await getDelegationById(smartAccountID);
+    // const delegation = await getDelegationBySmartAccountId(smartAccountID);
+
+    const delegation = await getDelegationById('cmj4hx0yy0000im4ifbbfiui2');
+
 
     if (!delegation) {
-        throw new Error("No stored delegation found in this smart account,seeing this means there is a bug in the system");
+        throw new Error("No stored delegation found in this smart account");
     }
 
 

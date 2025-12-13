@@ -1,7 +1,7 @@
 export interface RedeemResult {
     userOpHash: `0x${string}`;
     transactionHash: `0x${string}`;
-    blockNumber: bigint;
+    blockNumber: string;
     status: "success" | "reverted";
-    gasUsed?: bigint;
+    gasUsed?: string;
 }

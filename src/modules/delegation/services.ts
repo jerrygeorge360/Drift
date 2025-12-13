@@ -7,7 +7,7 @@ import {
 } from "@metamask/smart-accounts-kit";
 
 const { DelegationManager } = contracts;
-import { encodeFunctionData, http, createPublicClient, erc20Abi } from "viem";
+import { encodeFunctionData, http, createPublicClient, erc20Abi, zeroAddress } from "viem";
 import smartPortfolio from "../../contracts/abi/SmartPortfolio.json" with { type: 'json' };
 import { createBundlerClient } from "viem/account-abstraction";
 import { monadTestnet as chain } from "viem/chains";
@@ -20,7 +20,8 @@ import { RedeemResult } from "./types.js";
 export const createSignedDelegation = async (
     delegatorSmartAccount: MetaMaskSmartAccount,
     delegateSmartAccount: MetaMaskSmartAccount,
-    smartPortfolioAddress: `0x${string}`
+    smartPortfolioAddress: `0x${string}`,
+    tokenAddresses: `0x${string}`[]
 ) => {
     const delegation = createDelegation({
         from: delegatorSmartAccount.address,       // Alice, the delegator
@@ -28,8 +29,9 @@ export const createSignedDelegation = async (
         environment: delegatorSmartAccount.environment,
         scope: {
             type: "functionCall",
-            targets: [smartPortfolioAddress],   // Must match exact contract
+            targets: [...tokenAddresses,smartPortfolioAddress],   // Must match exact contract
             selectors: [
+                "approve(address,uint256)",
                 "executeRebalance(address,address,address,uint256,uint256,address[],string)"
             ],
         },
@@ -60,6 +62,29 @@ export const redeemDelegation = async (
     const publicClient = createPublicClient({ chain, transport: http() });
     const bundlerClient = createBundlerClient({ client: publicClient, transport: http(rpcUrl) });
 
+    // Encode the ERC20 token approve calldata
+    const approveCalldata = encodeFunctionData({
+        abi: [
+            {
+                name: 'approve',
+                type: 'function',
+                stateMutability: 'nonpayable',
+                inputs: [
+                    { name: 'spender', type: 'address' },
+                    { name: 'amount', type: 'uint256' }
+                ],
+                outputs: [{ type: 'bool' }]
+            }
+        ],
+        functionName: 'approve',
+        args: [smartPortfolioAddress, rebalanceParams.amountIn]
+    });
+    
+    const approvalExecution = createExecution({ 
+        target: rebalanceParams.tokenIn as `0x${string}`,  // TestDAI contract
+        callData: approveCalldata 
+    });
+
     // Encode the SmartPortfolio rebalance calldata
     const rebalanceCalldata = encodeFunctionData({
         abi: smartPortfolio.abi,
@@ -76,14 +101,19 @@ export const redeemDelegation = async (
     });
 
     // Create execution for this transaction
-    const execution = createExecution({ target: smartPortfolioAddress, callData: rebalanceCalldata });
-    const executions = [execution];  // Create array of executions
+    const rebalanceExecution = createExecution({ target: smartPortfolioAddress, callData: rebalanceCalldata });
+    
 
+    const redeemApprovalCalldata = DelegationManager.encode.redeemDelegations({
+    delegations: [[signedDelegation]],
+    modes: [ExecutionMode.SingleDefault],  // ← Single operation
+    executions: [[approvalExecution]],     // ← Just approve
+});
     // Encode redeemDelegations - both delegations and executions must be 2D arrays
     const redeemDelegationCalldata = DelegationManager.encode.redeemDelegations({
         delegations: [[signedDelegation]],       // Delegation[][]
         modes: [ExecutionMode.SingleDefault],
-        executions: [executions],                // ExecutionStruct[][] - [ExecutionStruct[]]
+        executions: [[rebalanceExecution]],                // ExecutionStruct[][] - [ExecutionStruct[]]
     });
 
     // Estimate gas or fallback to Pimlico
@@ -101,6 +131,27 @@ export const redeemDelegation = async (
     }
 
     console.log("Sending user operation with gas params:", gasParams);
+
+    // STEP 1: Send approval UserOperation
+    const approvalOpHash = await bundlerClient.sendUserOperation({
+        account: delegateSmartAccount,
+        calls: [{ to: delegateSmartAccount.address, data: redeemApprovalCalldata }],
+        maxFeePerGas: gasParams.maxFeePerGas,
+        maxPriorityFeePerGas: gasParams.maxPriorityFeePerGas,
+        paymaster: paymasterClient,
+    });
+
+    console.log("Approval UserOperation sent:", approvalOpHash);
+
+    // Wait for approval confirmation
+    const approvalReceipt = await bundlerClient.waitForUserOperationReceipt({ hash: approvalOpHash });
+    console.log("Approval receipt:", approvalReceipt);
+    
+    if (approvalReceipt.receipt.status !== "success") {
+        throw new Error(`Approval transaction reverted: ${approvalReceipt.receipt.transactionHash}`);
+    }
+
+    console.log("✅ Approval successful, now sending rebalance operation...");
 
     // Send UserOperation as delegate (Bob)
     const userOpHash = await bundlerClient.sendUserOperation({
@@ -121,9 +172,9 @@ export const redeemDelegation = async (
     return {
         userOpHash,
         transactionHash: receipt.transactionHash,
-        blockNumber: receipt.blockNumber,
+        blockNumber: receipt.blockNumber.toString(),
         status: "success",
-        gasUsed: receipt.gasUsed,
+        gasUsed: receipt.gasUsed.toString(),
     };
 };
 
@@ -139,23 +190,20 @@ export const redeemDelegation = async (
  */
 export const autoDeploySmartAccount = async (
     smartAccount: MetaMaskSmartAccount,
-    rpcUrl: string,
+    publicClient: any,
+    bundlerClient: any,
     pimlicoClient: any,
     paymasterClient?: any
 ): Promise<{ deployed: boolean; transactionHash?: string; alreadyDeployed?: boolean }> => {
-    console.log("Checking smart account deployment status...");
+    // console.log("Checking smart account deployment status...");
 
-    // Create clients
-    const publicClient = createPublicClient({ chain, transport: http() });
-    const bundlerClient = createBundlerClient({ client: publicClient, transport: http(rpcUrl) });
+    // // Check if the smart account is already deployed
+    // const bytecode = await publicClient.getCode({ address: smartAccount.address });
 
-    // Check if the smart account is already deployed
-    const bytecode = await publicClient.getCode({ address: smartAccount.address });
-
-    if (bytecode && bytecode !== '0x') {
-        console.log("Smart account already deployed:", smartAccount.address);
-        return { deployed: true, alreadyDeployed: true };
-    }
+    // if (bytecode && bytecode !== '0x') {
+    //     console.log("Smart account already deployed:", smartAccount.address);
+    //     return { deployed: true, alreadyDeployed: true };
+    // }
 
     console.log("Deploying smart account:", smartAccount.address);
 
@@ -178,7 +226,7 @@ export const autoDeploySmartAccount = async (
         account: smartAccount,
         calls: [
             {
-                to: smartAccount.address, // Send to self
+                to: zeroAddress, // Send to self
                 value: 0n,
                 data: "0x",
             },

@@ -55,11 +55,14 @@ export const createDelegationController = async (req: AuthRequest, res: Response
 
 
         // Create and sign the delegation
+
         const signature = await delegationService(
             delegatorSmartAccount,
             delegateSmartAccount,
-            smartPorfolioAddress
+            smartPorfolioAddress,
+            ['0xCC0DF0CD04526faB0B3d396456257D059f439548']
         );
+        // TODO: get the allowed token from a database
         if (!smartAccountId || !delegatorPrivateKey || !delegatePrivateKey || !signature) {
             return res.status(400).json({ message: "Missing or invalid fields" });
         }

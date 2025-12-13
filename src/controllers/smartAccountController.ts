@@ -11,8 +11,7 @@ import {
     deleteSmartAccountById,
     findSmartAccountById,
     getUserSmartAccounts
-} from "../utils/dbhelpers.js";
-import { deploySmartAccountOnChain } from "../deploy/firstDeploy.js";
+} from "../utils/dbhelpers.js"
 import { monadTestnet, sepolia } from "viem/chains";
 
 export interface AuthRequest extends Request {
@@ -57,21 +56,27 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
                     return res.status(500).json({ message: "RPC URL not configured" });
                 }
 
+                const pimlicoUrl = process.env.PIMLICO_API_URL;
+                if (!pimlicoUrl) {
+                    return res.status(500).json({ message: "Pimlico URL not configured" });
+                }
+
                 // Import the auto-deploy function
                 const { autoDeploySmartAccount } = await import("../modules/delegation/services.js");
-                const { createAASetup } = await import("../deploy/deployScript.js");
+                const { setupAccountAbstractionClients } = await import("../deploy/deployScript.js");
                 const { updateSmartAccountDeploymentStatus } = await import("../utils/dbhelpers.js");
 
                 // Get clients for deployment
-                const { pimlicoClient, paymasterClient } = await createAASetup({
+                const { publicClient, bundlerClient, pimlicoClient, paymasterClient } = await setupAccountAbstractionClients({
                     chain: monadTestnet,
                     rpcUrl,
-                    smartAccountId: createdSmartAccount.id,
+                    pimlicoUrl,
                 });
 
                 deploymentResult = await autoDeploySmartAccount(
                     smartAccount,
-                    rpcUrl,
+                    publicClient,
+                    bundlerClient,
                     pimlicoClient,
                     paymasterClient
                 );
@@ -174,60 +179,6 @@ export const getSmartAccountById = async (req: AuthRequest, res: Response, next:
         }
 
         return res.status(200).json({ smartAccount });
-    } catch (error) {
-        next(error);
-    }
-};
-
-export const deployOnchain = async (req: AuthRequest, res: Response, next: NextFunction) => {
-    try {
-        if (!req.user?.id) {
-            return res.status(401).json({ message: "Unauthorized: User info missing" });
-        }
-
-        const userId = req.user.id;
-        const smartAccountId = req.params.id;
-
-        if (!smartAccountId) {
-            return res.status(400).json({ message: "Smart account ID is required" });
-        }
-
-        const smartAccount = await findSmartAccountById(smartAccountId);
-
-        if (!smartAccount || smartAccount.userId !== userId) {
-            return res.status(404).json({ message: "Smart account not found or not owned by you" });
-        }
-        const rpcUrl = process.env.PIMLICO_API_URL
-
-        if (!rpcUrl) {
-            return res.status(404).json({ message: "RPC url requiredequired" });
-        }
-        const receipt = await deploySmartAccountOnChain({
-            chain: monadTestnet, // or mainnet, polygon etc.
-            rpcUrl: rpcUrl,
-            smartAccountId: smartAccountId,
-        });
-
-        console.log("Deployment receipt:", receipt);
-        const transactionResult = receipt
-        let resultMessage: string;
-
-        if (transactionResult !== true) {
-            // transactionResult is a TransactionReceipt here
-            resultMessage = transactionResult.transactionHash;
-
-            // Update database with deployment status
-            const { updateSmartAccountDeploymentStatus } = await import("../utils/dbhelpers.js");
-            await updateSmartAccountDeploymentStatus(
-                smartAccountId,
-                transactionResult.transactionHash
-            );
-            console.log("Deployment status saved to database");
-        } else {
-            resultMessage = "Smart account already deployed";
-        }
-
-        return res.status(200).json({ message: resultMessage });
     } catch (error) {
         next(error);
     }

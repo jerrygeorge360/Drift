@@ -2,7 +2,7 @@ import { redeemDelegationService } from "./bot.delegation.js";
 import { createRebalanceLog } from "../../utils/dbhelpers.js";
 import { calculateAmounts } from "../../utils/oraclehelper.js";
 import { LLMAdjustment } from "./bot.types.js";
-import {parseUnits} from "viem";
+import { parseUnits } from "viem";
 
 interface RebalanceResult {
     status: "success" | "partial" | "failed" | "no_adjustments";
@@ -33,7 +33,7 @@ interface LogEntry {
  */
 
 
-const s: LLMAdjustment[] =[ {
+const s: LLMAdjustment[] = [{
     tokenOut: "USDT",       // Token to reduce/sell
     tokenIn: "USDC",        // Token to increase/buy
     percentage: 10,         // Percentage of portfolio to adjust
@@ -101,7 +101,7 @@ export async function executeRebalances(
             // Find token allocations
             const tokenOutAllocation = findTokenAllocation(portfolio, adj.tokenOut);
             const tokenInAllocation = findTokenAllocation(portfolio, adj.tokenIn);
-            const tokenOutAddresss = findTokenAddress(portfolio, adj.tokenOut);
+            const tokenOutAddress = findTokenAddress(portfolio, adj.tokenOut);
             const tokenInAddress = findTokenAddress(portfolio, adj.tokenIn);
             if (!tokenOutAllocation) {
                 throw new Error(`Token ${adj.tokenOut} not found in portfolio`);
@@ -109,7 +109,7 @@ export async function executeRebalances(
             if (!tokenInAllocation) {
                 throw new Error(`Token ${adj.tokenIn} not found in portfolio`);
             }
-            if (!tokenOutAddresss) {
+            if (!tokenOutAddress) {
                 throw new Error(`Token ${adj.tokenOut} not found in portfolio`);
             }
             if (!tokenInAddress) {
@@ -122,7 +122,7 @@ export async function executeRebalances(
                 marketData,
                 totalValue
             );
-            console.log(amounts,'this is amount');
+            console.log(amounts, 'this is amount');
 
             const { amountIn, amountOut, swapValue } = amounts;
 
@@ -154,15 +154,15 @@ export async function executeRebalances(
 
             // Prepare rebalance parameters
             // @ts-ignore
-            const rebalanceParams = {
+            const rebalanceParams: RebalanceParams = {
                 botAddress: bot.address,
                 tokenIn: tokenInAddress,
-                tokenOut: tokenOutAddresss ,
-                amountOut: amountOutWei,
-                amountInMin: minAmountInWei,
+                tokenOut: tokenOutAddress,
+                amountIn: amountOutWei,
+                amountOutMin: minAmountInWei,
                 swapPath: [
-                      tokenInAddress,   // ✅ Token you're selling (source)
-                    tokenOutAddress 
+                    tokenInAddress,   //Token you're selling (source)
+                    tokenOutAddress
                 ],
                 reason: adj.reason || reason,
             };
