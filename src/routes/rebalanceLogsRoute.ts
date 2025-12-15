@@ -4,10 +4,10 @@ import {getRebalanceLogsController,createRebalanceLogController} from "../contro
 
 const rebalanceRouter = express.Router();
 
-// ✅ Create a new rebalance log
+// Create a new rebalance log
 rebalanceRouter.post("/", createRebalanceLogController);
 
-// ✅ Get all rebalance logs for a specific portfolio
+// Get all rebalance logs for a specific portfolio
 rebalanceRouter.get("/:portfolioId", getRebalanceLogsController);
 
 

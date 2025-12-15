@@ -28,7 +28,7 @@ export async function getLLMDecision(
         return validateLLMResponse(llmDecision);
 
     } catch (error: any) {
-        console.error(`❌ LLM decision failed:`, error.message);
+        console.error(`LLM decision failed:`, error.message);
 
         // Return safe default
         return {
@@ -143,7 +143,7 @@ function validateLLMResponse(response: any): LLMDecisionResponse {
                 response = JSON.parse(response);
             }
         } catch (error) {
-            console.error('❌ Failed to parse LLM response:', response);
+            console.error(' Failed to parse LLM response:', response);
             throw new Error('Invalid JSON response from LLM');
         }
     }
@@ -151,7 +151,7 @@ function validateLLMResponse(response: any): LLMDecisionResponse {
     // Validate action
     const validActions = ["rebalance", "none"];
     if (!validActions.includes(response.action)) {
-        console.warn(`⚠️ Invalid action "${response.action}", defaulting to "none"`);
+        console.warn(`Invalid action "${response.action}", defaulting to "none"`);
         response.action = "none";
     }
 
@@ -165,7 +165,7 @@ function validateLLMResponse(response: any): LLMDecisionResponse {
 
     // Validate adjustments
     if (!Array.isArray(response.adjustments)) {
-        console.warn('⚠️ Adjustments is not an array, defaulting to []');
+        console.warn('Adjustments is not an array, defaulting to []');
         response.adjustments = [];
     }
 
@@ -174,19 +174,19 @@ function validateLLMResponse(response: any): LLMDecisionResponse {
         .filter((adj: any) => {
             // Must have required fields
             if (!adj.tokenOut || !adj.tokenIn || typeof adj.percentage !== 'number') {
-                console.warn('⚠️ Invalid adjustment, skipping:', adj);
+                console.warn('Invalid adjustment, skipping:', adj);
                 return false;
             }
 
             // Can't swap same token
             if (adj.tokenOut === adj.tokenIn) {
-                console.warn('⚠️ tokenOut and tokenIn are the same, skipping:', adj);
+                console.warn('tokenOut and tokenIn are the same, skipping:', adj);
                 return false;
             }
 
             // Percentage must be reasonable
             if (adj.percentage <= 0 || adj.percentage > 50) {
-                console.warn(`⚠️ Invalid percentage ${adj.percentage}%, skipping adjustment`);
+                console.warn(`Invalid percentage ${adj.percentage}%, skipping adjustment`);
                 return false;
             }
 
@@ -206,13 +206,13 @@ function validateLLMResponse(response: any): LLMDecisionResponse {
 
     // If action is "rebalance" but no adjustments, change to "none"
     if (response.action === "rebalance" && response.adjustments.length === 0) {
-        console.warn('⚠️ Action is "rebalance" but no valid adjustments provided, changing to "none"');
+        console.warn('Action is "rebalance" but no valid adjustments provided, changing to "none"');
         response.action = "none";
         response.reason = "No valid adjustments could be determined";
     }
 
     // Log the validated decision
-    console.log(`🤖 LLM Decision:`, {
+    console.log(`LLM Decision:`, {
         action: response.action,
         reason: response.reason,
         adjustments: response.adjustments.length,

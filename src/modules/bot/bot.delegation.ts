@@ -6,7 +6,7 @@ import { reconstructSmartAccount } from "../../utils/delegationhelpers.js";
 import { redeemDelegation } from "../delegation/services.js";
 import { getBotByName, getContractAddressByName, getDelegationById } from "../../utils/dbhelpers.js";
 import { RebalanceParams } from "./bot.types.js";
-import { getDelegationBySmartAccountId } from "../../utils/dbhelpers.js";
+
 
 
 export async function redeemDelegationService(delegationID: string, reBalance: RebalanceParams) {

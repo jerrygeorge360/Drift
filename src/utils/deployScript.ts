@@ -10,9 +10,7 @@ export interface AASetupOptions {
     pimlicoUrl: string;         // optional, if using Pimlico
 }
 
-/**
- * Create an Account-Abstraction setup for a given chain.
- */
+// Create an Account-Abstraction setup for a given chain.
 export async function setupAccountAbstractionClients({ chain, rpcUrl, pimlicoUrl}: AASetupOptions) {
     const publicClient = createPublicClient({
         chain,

@@ -15,9 +15,8 @@ import botRouter from "./routes/botRoute.js";
 import loginRouter from "./routes/loginRoute.js";
 import oracleRouter from "./routes/oracleRoute.js";
 import blockchainRouter from "./routes/blockchainRoute.js";
-// import {adminJs, adminRouter} from "./admin/dashboard.js";
 import "./modules/jobs/agentQueue.js";
-import {addAgentJob} from "./modules/jobs/agentQueue.js";
+
 const app = express();
 
 app.use(cors({
@@ -33,16 +32,7 @@ app.use(express.json());
 app.use(requestLogger);
 
 
-// app.use(
-    // adminJs.options.rootPath,
-    // requireRole(["admin"]),
-    // adminRouter
-// );
-
 // Routes
-
-
-
 app.use('/api/login', loginRouter);
 app.use('/api/users',authMiddleware,userRouter);
 app.use('/api/smartAccounts',authMiddleware,smartAccountRoute);
@@ -55,10 +45,7 @@ app.use("/api/contract",authMiddleware,requireRole(["admin"]),contractConfigRout
 app.use('/api/bot',authMiddleware,requireRole(["admin"]),botRouter);
 app.use('/api/admin/price-polling', oracleRouter);
 app.use('/api/blockchain',blockchainRouter);
-// Error logging middleware (logs errors first)
 app.use(errorLogger);
-
-// Error handling middleware (sends response)
 app.use(errorHandler);
 
 export default app;

@@ -1,5 +1,4 @@
 import { redeemDelegationService } from "./bot.delegation.js";
-import { createRebalanceLog } from "../../utils/dbhelpers.js";
 import { calculateAmounts } from "../../utils/oraclehelper.js";
 import { LLMAdjustment } from "./bot.types.js";
 import { parseUnits } from "viem";
@@ -73,7 +72,7 @@ export async function executeRebalances(
 
     //Calculate total portfolio value from allocations + live market data
 
-    console.log(`Computed portfolio total value: $${totalValue.toFixed(2)}`);
+    console.log(`Portfolio total value: $${totalValue.toFixed(2)}`);
 
     if (totalValue === 0) {
         console.error(`Portfolio has zero value, cannot rebalance`);
@@ -126,22 +125,12 @@ export async function executeRebalances(
 
             const { amountIn, amountOut, swapValue } = amounts;
 
-            console.log(`   💱 Swap Details:`);
+            console.log(`   Swap Details:`);
             console.log(`      Value: $${swapValue.toFixed(2)} (${adj.percentage}% of portfolio)`);
             console.log(`      Out: ${amountOut.toFixed(6)} ${adj.tokenOut.toUpperCase()}`);
             console.log(`      In: ${amountIn.toFixed(6)} ${adj.tokenIn.toUpperCase()}`);
 
-            // Prepare log entry
-            // const logEntry:LogEntry = {
-            //     portfolioId: portfolio.id,
-            //     tokenInId: tokenInAllocation.tokenId,
-            //     tokenOutId: tokenOutAllocation.tokenId,
-            //     amountIn: amountIn.toString(),
-            //     amountOut: amountOut.toString(),
-            //     reason: `${reason} - ${adj.reason || 'Rebalancing'}`,
-            //     executor: bot.name,
-            //     timestamp: new Date(),
-            // };
+            
 
             // Convert amounts to proper decimals
             const tokenOutDecimals = 18;
@@ -167,7 +156,7 @@ export async function executeRebalances(
                 reason: adj.reason || reason,
             };
 
-            console.log(`   🔄 Executing delegation redemption...`);
+            console.log(`Executing delegation redemption...`);
 
             // Execute the delegation/swap
             const txResult = await redeemDelegationService(delegationId, rebalanceParams);
@@ -180,12 +169,12 @@ export async function executeRebalances(
                 // Fast mode: only userOpHash returned
                 userOpHash = txResult;
                 transactionHash = txResult; // Use userOpHash as placeholder
-                console.log(`   ✅ User Operation submitted: ${userOpHash}`);
+                console.log(`User Operation submitted: ${userOpHash}`);
             } else {
                 // Full mode: receipt with transaction hash
                 userOpHash = txResult.userOpHash;
                 transactionHash = txResult.transactionHash;
-                console.log(`   ✅ Transaction confirmed: ${transactionHash}`);
+                console.log(`Transaction confirmed: ${transactionHash}`);
             }
 
             //
@@ -197,10 +186,10 @@ export async function executeRebalances(
             // successfulRebalances.push(logEntry);
 
         } catch (error: any) {
-            console.error(`❌ Failed: ${error.message}`);
-            console.error(`❌ Adjustment failed for ${adj.tokenOut} → ${adj.tokenIn}`);
-            console.error(`   Reason: ${error.message}`);
-            console.error(`   Stack: ${error.stack?.split("\n")[0]}`);
+            console.error(`Failed: ${error.message}`);
+            console.error(`Adjustment failed for ${adj.tokenOut} → ${adj.tokenIn}`);
+            console.error(`Reason: ${error.message}`);
+            console.error(`Stack: ${error.stack?.split("\n")[0]}`);
 
             failedAdjustments.push({
                 adjustment: adj,
@@ -210,18 +199,7 @@ export async function executeRebalances(
         }
     }
 
-    // 🔹 Log successful rebalances to database
-    // if (successfulRebalances.length > 0) {
-    //     try {
-    //         await createRebalanceLog(successfulRebalances);
-    //         console.log(`\n✅ Logged ${successfulRebalances.length} successful rebalance(s) to database`);
-    //     } catch (error: any) {
-    //         console.error(`⚠️ Failed to log rebalances to database:`, error.message);
-    //     }
-    // } else {
-    //     console.log(`\n⚠️ No successful rebalances to log`);
-    // }
-    //
+    
     // // 🔹 Prepare result
     const executedCount = successfulRebalances.length;
     const failedCount = failedAdjustments.length;

@@ -12,19 +12,19 @@ const connection = new Redis({
 
 // Redis connection event handlers
 connection.on('error', (err) => {
-    console.error('❌ Redis connection error:', err.message);
+    console.error('Redis connection error:', err.message);
 });
 
 connection.on('connect', () => {
-    console.log('✅ Redis connected successfully');
+    console.log('Redis connected successfully');
 });
 
 connection.on('ready', () => {
-    console.log('✅ Redis ready to accept commands');
+    console.log('Redis ready to accept commands');
 });
 
 connection.on('reconnecting', () => {
-    console.log('🔄 Redis reconnecting...');
+    console.log('Redis reconnecting...');
 });
 
 // Create queue with enhanced configuration
@@ -49,7 +49,7 @@ export const agentQueue = new Queue("ai-agent-queue", {
 
 // Queue event handlers
 agentQueue.on('error', (err) => {
-    console.error('❌ Queue error:', err.message);
+    console.error('Queue error:', err.message);
 });
 
 
@@ -65,9 +65,9 @@ const validateJobData = (data: any) => {
         throw new Error('Invalid or missing botName');
     }
 
-    // ✅ Fixed: Include all valid agent modes
+    // Include all valid agent modes
     if (agentMode && !['auto', 'manual', 'test', 'smart', 'urgent'].includes(agentMode)) {
-        console.warn(`⚠️ Unknown agentMode: ${agentMode}`);
+        console.warn(`Unknown agentMode: ${agentMode}`);
     }
 
     return true;
@@ -84,7 +84,7 @@ export const agentWorker = new Worker("ai-agent-queue", async job => {
             // Validate job data
             // validateJobData(job.data);
 
-            console.log(`👷‍♂️ Processing AI Agent job #${job.id} for ${smartAccountId} (${botName})...`);
+            console.log(`Processing AI Agent job #${job.id} for ${smartAccountId} (${botName})...`);
 
             // Update job progress (optional)
             await job.updateProgress(10);
@@ -95,12 +95,12 @@ export const agentWorker = new Worker("ai-agent-queue", async job => {
             await job.updateProgress(100);
 
             const duration = Date.now() - startTime;
-            console.log(`✅ Job #${job.id} completed in ${duration}ms`);
+            console.log(`Job #${job.id} completed in ${duration}ms`);
 
             return result;
 
         } catch (error: any) {
-            console.error(`❌ Error processing job #${job.id}:`, {
+            console.error(`Error processing job #${job.id}:`, {
                 error: error.message,
                 smartAccountId,
                 botName,
@@ -123,7 +123,7 @@ export const agentWorker = new Worker("ai-agent-queue", async job => {
 
 // Worker event handlers
 agentWorker.on("completed", (job, result) => {
-    console.log(`✅ Job #${job.id} completed successfully`, {
+    console.log(`Job #${job.id} completed successfully`, {
         status: result?.status || "done",
         smartAccountId: job.data?.smartAccountId,
         botName: job.data?.botName,
@@ -131,7 +131,7 @@ agentWorker.on("completed", (job, result) => {
 });
 
 agentWorker.on("failed", (job, err) => {
-    console.error(`❌ Job #${job?.id} failed:`, {
+    console.error(`Job #${job?.id} failed:`, {
         error: err?.message,
         stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined,
         data: {
@@ -144,41 +144,41 @@ agentWorker.on("failed", (job, err) => {
 });
 
 agentWorker.on("progress", (job, progress) => {
-    console.log(`📊 Job #${job.id} progress: ${progress}%`);
+    console.log(`Job #${job.id} progress: ${progress}%`);
 });
 
 agentWorker.on("active", (job) => {
-    console.log(`🔄 Job #${job.id} started processing`);
+    console.log(`Job #${job.id} started processing`);
 });
 
 agentWorker.on("stalled", (jobId) => {
-    console.warn(`⚠️ Job #${jobId} stalled`);
+    console.warn(`Job #${jobId} stalled`);
 });
 
 // Graceful shutdown handler
 const gracefulShutdown = async (signal: string) => {
-    console.log(`\n⏸️ ${signal} received, starting graceful shutdown...`);
+    console.log(`\n${signal} received, starting graceful shutdown...`);
 
     try {
         // Stop accepting new jobs
-        console.log('🛑 Pausing queue...');
+        console.log('Pausing queue...');
         await agentQueue.pause();
 
         // Close worker (waits for active jobs to complete)
-        console.log('⏳ Waiting for active jobs to complete...');
+        console.log('Waiting for active jobs to complete...');
         await agentWorker.close();
 
         // Close queue
         await agentQueue.close();
 
         // Close Redis connection
-        console.log('🔌 Closing Redis connection...');
+        console.log('Closing Redis connection...');
         await connection.quit();
 
-        console.log('✅ Graceful shutdown completed');
+        console.log('Graceful shutdown completed');
         process.exit(0);
     } catch (error: any) {
-        console.error('❌ Error during shutdown:', error.message);
+        console.error('Error during shutdown:', error.message);
         process.exit(1);
     }
 };
@@ -189,11 +189,11 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Handle uncaught errors
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 process.on('uncaughtException', (error) => {
-    console.error('❌ Uncaught Exception:', error);
+    console.error('Uncaught Exception:', error);
     gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
 
@@ -208,10 +208,10 @@ export const addAgentJob = async (
 
         );
         console.log(totalValue)
-        console.log(`📝 Job #${job.id} added to queue`);
+        console.log(`Job #${job.id} added to queue`);
         return job;
     } catch (error: any) {
-        console.error('❌ Error adding job to queue:', error.message);
+        console.error('Error adding job to queue:', error.message);
         throw error;
     }
 };
@@ -236,10 +236,7 @@ export const getQueueStats = async () => {
             total: waiting + active + completed + failed + delayed,
         };
     } catch (error: any) {
-        console.error('❌ Error getting queue stats:', error.message);
+        console.error('Error getting queue stats:', error.message);
         throw error;
     }
 };
-
-const c =await getQueueStats()
-// console.log(c);

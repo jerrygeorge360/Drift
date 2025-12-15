@@ -6,7 +6,6 @@ import {
 import { buildLLMContext } from "./bot.context.js";
 import { getLLMDecision } from "./bot.decision.js";
 import { executeRebalances } from "./bot.execution.js";
-import {executeRebalances as mockexec} from './bot.mock.execution.js'
 export interface MarketData {
     [id: string]: {
         usd: number;
@@ -17,7 +16,7 @@ export interface MarketData {
     };
 }
 
-// ✅ Fixed: Align with queue validation
+// Fixed: Align with queue validation
 export type AgentMode = "auto" | "manual" | "test" | "smart" | "urgent";
 
 /**
@@ -43,7 +42,7 @@ export async function runAIAgent(
     console.log(`--Starting AI Agent for bot ID: ${botName}, SmartAccount: ${smartAccountId}--`);
     console.log(`Mode: ${agentMode}`);
 
-    // ✅ Validate inputs
+    // Validate inputs
     if (!botName || !smartAccountId) {
         throw new Error("botName and smartAccountId are required");
     }
@@ -54,24 +53,24 @@ export async function runAIAgent(
         throw new Error(`Bot "${bot.name}" is not active (current status: ${bot.status})`);
     }
 
-    // ✅ Update bot status with error handling
+    // Update bot status with error handling
     try {
         await updateBot(bot.name, { status: "running" });
     } catch (error: any) {
-        console.error(`❌ Failed to update bot status to running:`, error.message);
+        console.error(`Failed to update bot status to running:`, error.message);
         throw error;
     }
 
     try {
-        // 🔹 Fetch portfolio
+        // Fetch portfolio
         const portfolio = await getPortfolioBySmartAccountId(smartAccountId);
         if (!portfolio) {
             throw new Error(`Portfolio not found for smart account: ${smartAccountId}`);
         }
 
-        console.log(`📊 Portfolio loaded: ${portfolio.allocations?.length || 0} allocations`);
+        console.log(`Portfolio loaded: ${portfolio.allocations?.length || 0} allocations`);
 
-        // 🔹 Build context (will auto-calculate weights if not provided)
+        // Build context (will auto-calculate weights if not provided)
         const context = buildLLMContext(
             portfolio,
             marketData,
@@ -94,7 +93,7 @@ export async function runAIAgent(
         console.log(`Reason: ${reason}`);
 
         if (adjustments && adjustments.length > 0) {
-            console.log(`🔄 Adjustments: ${adjustments.length} planned`);
+            console.log(`Adjustments: ${adjustments.length} planned`);
             adjustments.forEach((adj, idx) => {
                 console.log(`   ${idx + 1}. ${adj.tokenOut} → ${adj.tokenIn} (${adj.percentage}%)`);
             });
@@ -146,7 +145,7 @@ export async function runAIAgent(
             };
         }
 
-        // 🔹 Reset bot to active
+        // Reset bot to active
         await updateBot(bot.name, { status: "active" });
 
         return {
@@ -158,14 +157,14 @@ export async function runAIAgent(
         };
 
     } catch (error: any) {
-        console.error(`❌ [${bot.name}] Agent run failed:`, error.message);
+        console.error(` [${bot.name}] Agent run failed:`, error.message);
         console.error(error.stack);
 
         // Better error handling for status update
         try {
             await updateBot(botName, { status: "error" });
         } catch (updateError: any) {
-            console.error(`❌ Failed to update bot status to error:`, updateError.message);
+            console.error(`Failed to update bot status to error:`, updateError.message);
         }
 
         // Re-throw with more context

@@ -22,7 +22,7 @@ export interface LLMDecision {
  * @returns Structured decision result from the LLM
  */
 export async function llmDecisionEngine(botName: string, context: string): Promise<LLMDecision> {
-    console.log(`🧠 [${botName}] Evaluating portfolio...`);
+    console.log(`[${botName}] Evaluating portfolio...`);
 
     const systemPrompt = `
   You are an AI Smart Portfolio Manager named ${botName}.
@@ -68,18 +68,18 @@ export async function llmDecisionEngine(botName: string, context: string): Promi
         });
 
         const rawText = completion.choices?.[0]?.message?.content?.trim() || "";
-        console.log(`🤖 [${botName}] Raw response:`, rawText);
+        console.log(`[${botName}] Raw response:`, rawText);
 
         try {
             return JSON.parse(rawText) as LLMDecision;
         } catch {
-            console.warn("⚠️ Groq returned non-JSON response, attempting to extract JSON...");
+            console.warn("Groq returned non-JSON response, attempting to extract JSON...");
             const match = rawText.match(/\{[\s\S]*\}/);
             if (match) return JSON.parse(match[0]) as LLMDecision;
             throw new Error("Invalid JSON format from LLM");
         }
     } catch (error: any) {
-        console.error("❌ LLM Decision Engine error:", error.message);
+        console.error("LLM Decision Engine error:", error.message);
         throw new Error("LLM decision engine failed");
     }
 }

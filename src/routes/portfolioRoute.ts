@@ -7,13 +7,13 @@ import {
 
 const portfolioRouter = express.Router();
 
-// ✅ Create portfolio
+// Create portfolio
 portfolioRouter.post("/", createPortfolioController);
 
-// ✅ Get portfolio by smartAccountId
+// Get portfolio by smartAccountId
 portfolioRouter.get("/:smartAccountId", getPortfolioController);
 
-// ✅ Update portfolio name
+// Update portfolio name
 portfolioRouter.put("/:smartAccountId", updatePortfolioNameController);
 
 export default portfolioRouter;

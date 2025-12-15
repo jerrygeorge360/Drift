@@ -216,7 +216,7 @@ async function pollAllPrices(): Promise<TokenPrices | null> {
         const prices = await fetchWithRetry(allTokens);
 
         if (!prices) {
-            console.warn('⚠️ No prices fetched');
+            console.warn('No prices fetched');
             return null;
         }
 
@@ -257,7 +257,7 @@ async function pollAllPrices(): Promise<TokenPrices | null> {
         });
 
         if (!response.ok) {
-            console.error(`❌ Webhook call failed: ${response.status} ${response.statusText}`);
+            console.error(`Webhook call failed: ${response.status} ${response.statusText}`);
         } else {
             console.log(`✅ Webhook called successfully at ${webhookUrl}`);
         }
@@ -446,9 +446,7 @@ export function startPricePolling(): StopPollingFunction {
     return stopPricePolling;
 }
 
-/**
- * Stop the price polling service
- */
+// Stop the price polling service
 export function stopPricePolling(): void {
     if (!pollingState.isRunning) {
         console.log('Price polling service is not running');
@@ -476,9 +474,7 @@ export function stopPricePolling(): void {
     console.log('Price polling service stopped');
 }
 
-/**
- * Restart the price polling service
- */
+// Restart the price polling service
 export function restartPricePolling(): void {
     console.log('Restarting price polling service...');
     stopPricePolling();
@@ -489,9 +485,7 @@ export function restartPricePolling(): void {
     }, 1000);
 }
 
-/**
- * Get polling status and statistics
- */
+// Get polling status and statistics
 export function getPollingStatus() {
     resetDailyCounterIfNeeded();
 
@@ -519,9 +513,7 @@ export function getPollingStatus() {
     };
 }
 
-/**
- * Update polling intervals (requires restart to take effect)
- */
+// Update polling intervals (requires restart to take effect)
 export function updateIntervals(allSeconds?:number): void {
     // if (volatileSeconds !== undefined) {
     //     if (volatileSeconds < 10 || volatileSeconds > 3600) {
@@ -544,15 +536,11 @@ export function updateIntervals(allSeconds?:number): void {
         TOKEN_INTERVAL = allSeconds * 1000;
     }
     console.log('Intervals updated:', {
-        // volatileInterval: VOLATILE_INTERVAL / 1000,
-        // stableInterval: STABLE_INTERVAL / 1000,
         tokenInterval: TOKEN_INTERVAL / 1000,
     });
 }
 
-/**
- * Force an immediate price update for all tokens
- */
+// Force an immediate price update for all tokens
 export async function forceUpdate(): Promise<CurrentPrices> {
     console.log('Forcing immediate price update...');
 
@@ -563,9 +551,7 @@ export async function forceUpdate(): Promise<CurrentPrices> {
     return getCurrentPrices();
 }
 
-/**
- * Calculate estimated monthly API calls
- */
+// Calculate estimated monthly API calls
 export function calculateMonthlyCalls(): void {
     const minutesPerMonth = 43200; // 30 days
     const totalCalls = minutesPerMonth / (TOKEN_INTERVAL / 60000)

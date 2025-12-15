@@ -4,21 +4,8 @@ import {
     getUserAllocation,
     checkHasAllocation,
     estimateSwap,
-    getTokenBalance,
-    validateRebalanceController,
     getContractStatus,
-    getBatchAllocationsController,
-
-    // Write operations
-    setAllocation,
-    removeAllocation,
-    revokeApproval,
-    pauseContract,
-    unpauseContract,
-
-
 } from "../controllers/blockchainController.js";
-import authMiddleware, {requireRole} from "../middleware/authMiddleware.js";
 
 const blockchainRouter = express.Router();
 
@@ -40,6 +27,3 @@ blockchainRouter.get("/status", getContractStatus);
 
 
 export default blockchainRouter;
-
-
-

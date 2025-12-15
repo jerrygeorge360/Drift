@@ -415,7 +415,7 @@ export async function getContractConfigByName(name: string) {
     return prisma.contractConfig.findUnique({ where: { name } });
 }
 
-export async function getContractAddressByName(name: string): `0x${string}`| null> {
+export async function getContractAddressByName(name: string): Promise<`0x${string}` | null> {
     const config = await prisma.contractConfig.findUnique({ where: { name } });
     return config?.contractAddress as `0x${string}` ?? null;
 }

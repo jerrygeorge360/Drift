@@ -1,4 +1,3 @@
-import { walletActions } from "viem";
 import { publicClient } from "../controllers/clients.js";
 import smartPortfolio from "../contracts/abi/SmartPortfolio.json" with { type: 'json' };
 
@@ -8,9 +7,7 @@ const SMART_PORTFOLIO_ABI = smartPortfolio.abi;
 // WRITE FUNCTIONS (State Changing)
 // ========================================
 
-/**
- * Write pause (owner only)
- */
+// Write pause (owner only)
 export const writePause = async(
     contractAddress: `0x${string}`,
     walletClient:any
@@ -20,9 +17,7 @@ export const writePause = async(
     functionName: "pause",
 })
 
-/**
- * Unpause the contract (owner only)
- */
+// Unpause the contract (owner only)
 export const writeUnpause = async(
     contractAddress: `0x${string}`,
     walletClient: any
@@ -32,6 +27,7 @@ export const writeUnpause = async(
     functionName: "unpause",
 })
 
+// Set allocation (owner only)
 export const writeSetAllocation = async(
     contractAddress: `0x${string}`,
     walletClient: any,
@@ -44,6 +40,7 @@ export const writeSetAllocation = async(
     args: [tokens, percents]
 })
 
+// Remove allocation (owner only)
 export const writeRemoveAllocation = async(
     contractAddress: `0x${string}`,
     walletClient: any
@@ -53,6 +50,7 @@ export const writeRemoveAllocation = async(
     functionName: "removeAllocation",   
 })
 
+// Revoke approval (owner only)
 export const writeRevokeApproval = async(
     contractAddress: `0x${string}`,
     walletClient: any,
@@ -64,7 +62,7 @@ export const writeRevokeApproval = async(
     args: [token]
 })
 
-// owner only
+// Transfer ownership (owner only)
 export const writeTransferOwnership = async(
     contractAddress: `0x${string}`,
     walletClient: any,
@@ -85,9 +83,7 @@ export type TokenAllocation = {
     percent: number;
 };
 
-/**
- * Get user's portfolio allocation
- */
+// Get user's portfolio allocation
 export const getAllocation = async (
     contractAddress: `0x${string}`,
     smartAccountAddress: `0x${string}`
@@ -102,9 +98,7 @@ export const getAllocation = async (
     return result as TokenAllocation[];
 };
 
-/**
- * Check if user has a valid allocation
- */
+// Check if user has a valid allocation
 export const hasAllocation = async (
     contractAddress: `0x${string}`,
     smartAccountAddress: `0x${string}`
@@ -119,9 +113,7 @@ export const hasAllocation = async (
     return result as boolean;
 };
 
-/**
- * Get estimated output amount for a swap
- */
+// Get estimated output amount for a swap
 export const getEstimatedOut = async (
     contractAddress: `0x${string}`,
     amountIn: bigint,
@@ -141,9 +133,7 @@ export const getEstimatedOut = async (
 
 
 
-/**
- * Check if contract is paused
- */
+// Check if contract is paused
 export const isPaused = async (contractAddress: `0x${string}`): Promise<boolean> => {
     const result = await publicClient.readContract({
         address: contractAddress,
@@ -155,9 +145,7 @@ export const isPaused = async (contractAddress: `0x${string}`): Promise<boolean>
     return result as boolean;
 };
 
-/**
- * Get router address
- */
+// Get router address
 export const getRouter = async (contractAddress: `0x${string}`): Promise<`0x${string}`> => {
     const result = await publicClient.readContract({
         address: contractAddress,
@@ -169,9 +157,7 @@ export const getRouter = async (contractAddress: `0x${string}`): Promise<`0x${st
     return result as `0x${string}`;
 };
 
-/**
- * Get contract owner
- */
+// Get contract owner
 export const getOwner = async (contractAddress: `0x${string}`): Promise<`0x${string}`> => {
     const result = await publicClient.readContract({
         address: contractAddress,
