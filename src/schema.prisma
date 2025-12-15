@@ -106,16 +106,24 @@ model RebalanceLog {
   amountOut Float
   reason    String
   executor  String // Could be bot or user address
+
+  // Transaction details
+  userOpHash      String? // User operation hash
+  transactionHash String? @unique // Blockchain transaction hash
+  blockNumber     String? // Block number
+  status          String? // "success" or "reverted"
+  gasUsed         String? // Gas consumed
+
   createdAt DateTime @default(now())
 }
 
 model ContractConfig {
   id              String   @id @default(uuid())
+  name            String   @unique
   contractAddress String   @unique
-  network         String
+  network         String   @default("monadTestnet")
   owner           String
   paused          Boolean  @default(false)
-  createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
 

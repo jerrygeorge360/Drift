@@ -76,10 +76,10 @@ export async function deleteBotController(req: Request, res: Response) {
 
 
 export async function runAgentController(req: Request, res: Response) {
-    const { botName, smartAccountId } = req.body;
+    const { botName, smartAccountId,delegationId } = req.body;
 
     try {
-        const result = await runAIAgent(botName, smartAccountId);
+        const result = await runAIAgent(botName, smartAccountId,delegationId);
         res.status(200).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

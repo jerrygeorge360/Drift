@@ -1,4 +1,4 @@
-import { encodeFunctionData, parseUnits, formatUnits } from "viem";
+import { walletActions } from "viem";
 import { publicClient } from "../controllers/clients.js";
 import smartPortfolio from "../contracts/abi/SmartPortfolio.json" with { type: 'json' };
 
@@ -9,64 +9,72 @@ const SMART_PORTFOLIO_ABI = smartPortfolio.abi;
 // ========================================
 
 /**
- * Set user's portfolio allocation
- * @param tokens - Array of token addresses
- * @param percents - Array of percentages (must sum to 100)
+ * Write pause (owner only)
  */
-export const encodeSetAllocation = (
-    tokens: `0x${string}`[],
-    percents: number[]
-): `0x${string}` => {
-    return encodeFunctionData({
-        abi: SMART_PORTFOLIO_ABI,
-        functionName: "setAllocation",
-        args: [tokens, percents]
-    });
-};
-
-/**
- * Remove user's allocation
- */
-export const encodeRemoveAllocation = (): `0x${string}` => {
-    return encodeFunctionData({
-        abi: SMART_PORTFOLIO_ABI,
-        functionName: "removeAllocation",
-        args: []
-    });
-};
-
-/**
- * Revoke token approval for router
- */
-export const encodeRevokeApproval = (token: `0x${string}`): `0x${string}` => {
-    return encodeFunctionData({
-        abi: SMART_PORTFOLIO_ABI,
-        functionName: "revokeApproval",
-        args: [token]
-    });
-};
-
-/**
- * Pause the contract (owner only)
- */
-export const encodePause = (): `0x${string}` => {
-    return encodeFunctionData({
-        abi: SMART_PORTFOLIO_ABI,
-        functionName: "pause",
-        args: []
-    });
-};
+export const writePause = async(
+    contractAddress: `0x${string}`,
+    walletClient:any
+)=> await walletClient.writeContract({
+    address: contractAddress,
+    abi: SMART_PORTFOLIO_ABI,
+    functionName: "pause",
+})
 
 /**
  * Unpause the contract (owner only)
  */
-export const encodeUnpause = (): `0x${string}` => {
-    return encodeFunctionData({
-        abi: SMART_PORTFOLIO_ABI,
-        functionName: "unpause",
-        args: []
-    });
-};
+export const writeUnpause = async(
+    contractAddress: `0x${string}`,
+    walletClient: any
+)=> await walletClient.writeContract({
+    address: contractAddress,
+    abi: SMART_PORTFOLIO_ABI,
+    functionName: "unpause",
+})
+
+export const writeSetAllocation = async(
+    contractAddress: `0x${string}`,
+    walletClient: any,
+    tokens: `0x${string}`[],
+    percents: number[]
+)=> await walletClient.writeContract({
+    address: contractAddress,
+    abi: SMART_PORTFOLIO_ABI,
+    functionName: "setAllocation",
+    args: [tokens, percents]
+})
+
+export const writeRemoveAllocation = async(
+    contractAddress: `0x${string}`,
+    walletClient: any
+)=> await walletClient.writeContract({
+    address: contractAddress,
+    abi: SMART_PORTFOLIO_ABI,
+    functionName: "removeAllocation",   
+})
+
+export const writeRevokeApproval = async(
+    contractAddress: `0x${string}`,
+    walletClient: any,
+    token: `0x${string}`
+)=> await walletClient.writeContract({
+    address: contractAddress,
+    abi: SMART_PORTFOLIO_ABI,
+    functionName: "revokeApproval",
+    args: [token]
+})
+
+// owner only
+export const writeTransferOwnership = async(
+    contractAddress: `0x${string}`,
+    walletClient: any,
+    newOwner: `0x${string}`
+)=> await walletClient.writeContract({
+    address: contractAddress,
+    abi: SMART_PORTFOLIO_ABI,
+    functionName: "transferOwnership",
+    args: [newOwner]
+})
 
 // ========================================
 // READ FUNCTIONS (View/Pure)
@@ -82,13 +90,13 @@ export type TokenAllocation = {
  */
 export const getAllocation = async (
     contractAddress: `0x${string}`,
-    userAddress: `0x${string}`
+    smartAccountAddress: `0x${string}`
 ): Promise<TokenAllocation[]> => {
     const result = await publicClient.readContract({
         address: contractAddress,
         abi: SMART_PORTFOLIO_ABI,
         functionName: "getAllocation",
-        args: [userAddress]
+        args: [smartAccountAddress]
     });
 
     return result as TokenAllocation[];
@@ -99,13 +107,13 @@ export const getAllocation = async (
  */
 export const hasAllocation = async (
     contractAddress: `0x${string}`,
-    userAddress: `0x${string}`
+    smartAccountAddress: `0x${string}`
 ): Promise<boolean> => {
     const result = await publicClient.readContract({
         address: contractAddress,
         abi: SMART_PORTFOLIO_ABI,
         functionName: "hasAllocation",
-        args: [userAddress]
+        args: [smartAccountAddress]
     });
 
     return result as boolean;
@@ -129,44 +137,9 @@ export const getEstimatedOut = async (
     return result as bigint[];
 };
 
-/**
- * Get contract balance for a specific token
- */
-export const getContractBalance = async (
-    contractAddress: `0x${string}`,
-    tokenAddress: `0x${string}`
-): Promise<bigint> => {
-    const result = await publicClient.readContract({
-        address: contractAddress,
-        abi: SMART_PORTFOLIO_ABI,
-        functionName: "getContractBalance",
-        args: [tokenAddress]
-    });
 
-    return result as bigint;
-};
 
-/**
- * Validate a rebalance before execution
- */
-export const validateRebalance = async (
-    contractAddress: `0x${string}`,
-    tokenIn: `0x${string}`,
-    tokenOut: `0x${string}`,
-    amountIn: bigint,
-    amountOutMin: bigint,
-    path: `0x${string}`[]
-): Promise<{ valid: boolean; reason: string }> => {
-    const result = await publicClient.readContract({
-        address: contractAddress,
-        abi: SMART_PORTFOLIO_ABI,
-        functionName: "validateRebalance",
-        args: [tokenIn, tokenOut, amountIn, amountOutMin, path]
-    });
 
-    const [valid, reason] = result as [boolean, string];
-    return { valid, reason };
-};
 
 /**
  * Check if contract is paused
@@ -208,109 +181,4 @@ export const getOwner = async (contractAddress: `0x${string}`): Promise<`0x${str
     });
 
     return result as `0x${string}`;
-};
-
-// ========================================
-// UTILITY FUNCTIONS
-// ========================================
-
-/**
- * Calculate slippage tolerance
- * @param amount - Original amount
- * @param slippagePercent - Slippage percentage (e.g., 1 for 1%)
- */
-export const calculateMinAmount = (amount: bigint, slippagePercent: number): bigint => {
-    const slippage = BigInt(Math.floor(slippagePercent * 100));
-    return (amount * (10000n - slippage)) / 10000n;
-};
-
-
-/**
- * Validate allocation percentages
- */
-export const validateAllocationPercents = (percents: number[]): {
-    valid: boolean;
-    reason: string;
-} => {
-    if (percents.length === 0) {
-        return { valid: false, reason: "No percentages provided" };
-    }
-
-    const sum = percents.reduce((acc, p) => acc + p, 0);
-    if (sum !== 100) {
-        return { valid: false, reason: `Sum must equal 100, got ${sum}` };
-    }
-
-    if (percents.some(p => p <= 0)) {
-        return { valid: false, reason: "All percentages must be greater than 0" };
-    }
-
-    return { valid: true, reason: "Valid" };
-};
-
-/**
- * Format token amount with decimals
- */
-export const formatTokenAmount = (
-    amount: bigint,
-    decimals: number = 18
-): string => {
-    return formatUnits(amount, decimals);
-};
-
-/**
- * Parse token amount to BigInt
- */
-export const parseTokenAmount = (
-    amount: string,
-    decimals: number = 18
-): bigint => {
-    return parseUnits(amount, decimals);
-};
-
-// ========================================
-// EVENT PARSING
-// ========================================
-
-export type RebalanceExecutedEvent = {
-    user: `0x${string}`;
-    executor: `0x${string}`;
-    tokenIn: `0x${string}`;
-    tokenOut: `0x${string}`;
-    amountIn: bigint;
-    amountOut: bigint;
-    reason: string;
-    timestamp: bigint;
-};
-
-export type DynamicAllocationSetEvent = {
-    user: `0x${string}`;
-    tokens: `0x${string}`[];
-    percents: number[];
-};
-
-// ========================================
-// BATCH OPERATIONS
-// ========================================
-
-/**
- * Get multiple users' allocations in one call
- */
-export const getBatchAllocations = async (
-    contractAddress: `0x${string}`,
-    userAddresses: `0x${string}`[]
-): Promise<Map<`0x${string}`, TokenAllocation[]>> => {
-    const allocations = new Map<`0x${string}`, TokenAllocation[]>();
-
-    const promises = userAddresses.map(user =>
-        getAllocation(contractAddress, user)
-    );
-
-    const results = await Promise.all(promises);
-
-    userAddresses.forEach((user, index) => {
-        allocations.set(user, results[index]);
-    });
-
-    return allocations;
 };

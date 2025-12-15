@@ -21,3 +21,5 @@ RUN npm install --omit=dev
 
 EXPOSE 4000
 CMD ["node", "dist/server.js"]
+
+# TODO : properly write the docker file

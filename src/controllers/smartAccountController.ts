@@ -63,7 +63,7 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
 
                 // Import the auto-deploy function
                 const { autoDeploySmartAccount } = await import("../modules/delegation/services.js");
-                const { setupAccountAbstractionClients } = await import("../deploy/deployScript.js");
+                const { setupAccountAbstractionClients } = await import("../utils/deployScript.js");
                 const { updateSmartAccountDeploymentStatus } = await import("../utils/dbhelpers.js");
 
                 // Get clients for deployment

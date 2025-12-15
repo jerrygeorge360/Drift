@@ -81,7 +81,7 @@ export const redeemDelegation = async (
     });
     
     const approvalExecution = createExecution({ 
-        target: rebalanceParams.tokenIn as `0x${string}`,  // TestDAI contract
+        target: rebalanceParams.tokenIn as `0x${string}`,
         callData: approveCalldata 
     });
 
@@ -106,8 +106,8 @@ export const redeemDelegation = async (
 
     const redeemApprovalCalldata = DelegationManager.encode.redeemDelegations({
     delegations: [[signedDelegation]],
-    modes: [ExecutionMode.SingleDefault],  // ← Single operation
-    executions: [[approvalExecution]],     // ← Just approve
+    modes: [ExecutionMode.SingleDefault], 
+    executions: [[approvalExecution]],   
 });
     // Encode redeemDelegations - both delegations and executions must be 2D arrays
     const redeemDelegationCalldata = DelegationManager.encode.redeemDelegations({
@@ -195,15 +195,6 @@ export const autoDeploySmartAccount = async (
     pimlicoClient: any,
     paymasterClient?: any
 ): Promise<{ deployed: boolean; transactionHash?: string; alreadyDeployed?: boolean }> => {
-    // console.log("Checking smart account deployment status...");
-
-    // // Check if the smart account is already deployed
-    // const bytecode = await publicClient.getCode({ address: smartAccount.address });
-
-    // if (bytecode && bytecode !== '0x') {
-    //     console.log("Smart account already deployed:", smartAccount.address);
-    //     return { deployed: true, alreadyDeployed: true };
-    // }
 
     console.log("Deploying smart account:", smartAccount.address);
 
@@ -254,3 +245,6 @@ export const autoDeploySmartAccount = async (
         alreadyDeployed: false,
     };
 };
+
+
+//DONE : organize this

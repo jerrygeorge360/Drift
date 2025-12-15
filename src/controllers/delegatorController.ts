@@ -9,9 +9,17 @@ import {
     createDelegationdb,
     findSmartAccountById, getBotByName,
     getUserSmartAccounts,
-    revokeDelegation
+    revokeDelegation,
+    getDelegationById,
+    getPortfolioBySmartAccountId,
+    findTokenByAddress,
+    createRebalanceLog,
+    getContractAddressByName
 } from "../utils/dbhelpers.js";
 import { decryptPrivateKey } from "../utils/encryption.js";
+import { redeemDelegationService } from "../modules/bot/bot.delegation.js";
+import { RebalanceParams } from "../modules/bot/bot.types.js";
+import { RedeemResult } from "../modules/delegation/types.js";
 
 export interface AuthRequest extends Request {
     user?: { id: string; address: string };
@@ -39,6 +47,11 @@ export const createDelegationController = async (req: AuthRequest, res: Response
         if (!smartAccount || !smartAccount.privateKey) {
             throw ('No smartAccount or privateKey failed')
         }
+
+        const monitoredTokens: `0x${string}`[] = req.body.monitoredTokens
+        if (!monitoredTokens) {
+            return res.status(404).json({ message: "No token to monitor" })
+        }
         // collect user ids and query for the keys
         // deencrypt the keys
 
@@ -51,18 +64,20 @@ export const createDelegationController = async (req: AuthRequest, res: Response
 
         const delegatorSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatorPrivateKey)
         const delegateSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatePrivateKey)
-        const smartPorfolioAddress = `0x065A0af7bfF900deB2Bcb7Ae3fc6e1dD52579aC7`
-
-
+        const smartPorfolioAddress = await getContractAddressByName("SmartPortfolioContract");
+        // DONE :don't hardcode the smartportfolioaddress
+        if (!smartPorfolioAddress) {
+            return res.status(404).json({ message: "Smart portfolio contract not found" });
+        }
         // Create and sign the delegation
 
         const signature = await delegationService(
             delegatorSmartAccount,
             delegateSmartAccount,
             smartPorfolioAddress,
-            ['0xCC0DF0CD04526faB0B3d396456257D059f439548']
+            monitoredTokens
         );
-        // TODO: get the allowed token from a database
+
         if (!smartAccountId || !delegatorPrivateKey || !delegatePrivateKey || !signature) {
             return res.status(400).json({ message: "Missing or invalid fields" });
         }
@@ -95,36 +110,141 @@ export const createDelegationController = async (req: AuthRequest, res: Response
 };
 
 
+
+
+
+export const redeemDelegationController = async (req: Request, res: Response): Promise<Response> => {
+    // DONE : convert this to a real route not testcontroller probably integrate it with the webhook controller
+    try {
+        const smartAccountId: string = req.params.smartAccountId;
+        const delegationId: string = req.params.delegationId;
+        const data: RebalanceParams = req.body.data;
+        const txResult: RedeemResult = await redeemDelegationService(
+            delegationId,
+            data
+        );
+
+        // Save transaction result to database
+        try {
+            const portfolio = await getPortfolioBySmartAccountId(smartAccountId);
+            if (portfolio) {
+                // Get token IDs from addresses
+                const tokenIn = await findTokenByAddress(data.tokenIn);
+                const tokenOut = await findTokenByAddress(data.tokenOut);
+
+                if (tokenIn && tokenOut) {
+                    await createRebalanceLog({
+                        portfolioId: portfolio.id,
+                        tokenInId: tokenIn.id,
+                        tokenOutId: tokenOut.id,
+                        amountIn: Number(data.amountIn) / Math.pow(10, tokenIn.decimals), // Convert from wei
+                        amountOut: Number(data.amountOutMin) / Math.pow(10, tokenOut.decimals), // Convert from wei
+                        reason: data.reason,
+                        executor: data.botAddress,
+                        userOpHash: txResult.userOpHash,
+                        transactionHash: txResult.transactionHash,
+                        blockNumber: txResult.blockNumber,
+                        status: txResult.status,
+                        gasUsed: txResult.gasUsed,
+                    });
+                    console.log("Rebalance log saved to database");
+                } else {
+                    console.warn("Could not find tokens in database, skipping log save");
+                }
+            } else {
+                console.warn("Portfolio not found, skipping log save");
+            }
+        } catch (dbError) {
+            console.error("Failed to save rebalance log to database:", dbError);
+            // Don't fail the entire request if DB save fails
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Redeem delegation executed successfully",
+            data: txResult,
+        });
+    } catch (error: any) {
+        console.error("❌ Redeem Delegation Error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to execute redeem delegation",
+            error: error?.message || String(error),
+        });
+    }
+};
+
+
+// TODO : make an offchain blockchain pair checker
+// TODO : make an offchain blockchain swap path checker
+// DONE: make custom tokens,deploy the tokens,and make it liquid(done)
+
+
+
 export const revokeDelegationController = async (req: AuthRequest, res: Response) => {
     try {
-
+        // Check authentication
         if (!req.user?.address || !req.user?.id) {
             return res.status(401).json({ message: "Unauthorized: User info missing" });
         }
-        const userId = req.user?.id;
-        const smartAccountId = req.params.smartAccountId;
-        // Get all smart accounts of user
-        const userSmartAccounts = await getUserSmartAccounts(userId);
 
-        // Check if smartAccountId is among user's smart accounts
-        const smartAccounts = userSmartAccounts.find((sa: { id: string; }) => sa.id === smartAccountId);
+        const userId = req.user.id;
+        const delegationId = req.params.delegationId;
 
-        if (!smartAccounts) {
-            return res.status(404).json({ message: "Smart account not found or not owned by you" });
+        // Validate delegation ID is provided
+        if (!delegationId) {
+            return res.status(400).json({ message: "Delegation ID is required" });
         }
 
-        await revokeDelegation(smartAccountId);
+        // Fetch the delegation
+        const delegation = await getDelegationById(delegationId);
+
+        // Check if delegation exists
+        if (!delegation) {
+            return res.status(404).json({ message: "Delegation not found" });
+        }
+
+        // Check if delegation is already revoked
+        if (delegation.revoked) {
+            return res.status(400).json({
+                message: "Delegation has already been revoked",
+                revokedAt: delegation.updatedAt
+            });
+        }
+
+        // Fetch the smart account associated with this delegation
+        const smartAccount = await findSmartAccountById(delegation.smartAccountId);
+
+        // Verify smart account exists
+        if (!smartAccount) {
+            return res.status(404).json({ message: "Smart account associated with delegation not found" });
+        }
+
+        // Verify ownership: ensure the smart account belongs to the authenticated user
+        if (smartAccount.userId !== userId) {
+            return res.status(403).json({
+                message: "Forbidden: You do not have permission to revoke this delegation"
+            });
+        }
+
+        // All validations passed, proceed with revocation
+        await revokeDelegation(delegationId);
 
         return res.status(200).json({
             message: "Delegation revoked successfully",
+            delegationId,
+            revokedAt: new Date().toISOString()
         });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error revoking delegation:", error);
         // @ts-ignore
         return res.status(500).json({
-            message: "Failed to revoke delegation"
+            message: "Failed to revoke delegation",
+            error: error?.message || "Internal server error"
         });
     }
-
 }
+
+// DONE : implement revoke of delegation.
+// DONE : add proper validation in the revoke delegation

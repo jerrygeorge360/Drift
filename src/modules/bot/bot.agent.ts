@@ -33,6 +33,7 @@ export type AgentMode = "auto" | "manual" | "test" | "smart" | "urgent";
 export async function runAIAgent(
     botName: string,
     smartAccountId: string,
+    delegationId:string,
     marketData?: MarketData,
     agentMode: AgentMode = "auto",
     currentWeights?: any,
@@ -106,7 +107,7 @@ export async function runAIAgent(
 
             result = await executeRebalances(
                 bot,
-                smartAccountId,
+                delegationId,
                 portfolio,
                 adjustments,
                 reason,

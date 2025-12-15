@@ -42,7 +42,7 @@ const s: LLMAdjustment[] = [{
 
 export async function executeRebalances(
     bot: any,
-    smartAccountId: string,
+    delegationId: string,
     portfolio: any,
     adjustments: LLMAdjustment[],
     reason: string,
@@ -50,7 +50,7 @@ export async function executeRebalances(
     totalValue: any,
 ): Promise<RebalanceResult> {
 
-    console.log(`[${bot.name}] Starting rebalance cycle for SmartAccount: ${smartAccountId}`);
+    console.log(`[${bot.name}] Starting rebalance cycle for Delegation: ${delegationId}`);
 
     // Validate inputs
     if (!adjustments || adjustments.length === 0) {
@@ -170,7 +170,7 @@ export async function executeRebalances(
             console.log(`   🔄 Executing delegation redemption...`);
 
             // Execute the delegation/swap
-            const txResult = await redeemDelegationService(smartAccountId, rebalanceParams);
+            const txResult = await redeemDelegationService(delegationId, rebalanceParams);
             console.log('execution result', txResult);
             // Handle different return types
             let userOpHash: string;

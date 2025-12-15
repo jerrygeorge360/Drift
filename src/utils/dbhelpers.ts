@@ -296,6 +296,11 @@ export async function createRebalanceLog(
             amountOut: number;
             reason: string;
             executor: string;
+            userOpHash?: string;
+            transactionHash?: string;
+            blockNumber?: string;
+            status?: string;
+            gasUsed?: string;
         }
         | {
             portfolioId: string;
@@ -305,6 +310,11 @@ export async function createRebalanceLog(
             amountOut: number;
             reason: string;
             executor: string;
+            userOpHash?: string;
+            transactionHash?: string;
+            blockNumber?: string;
+            status?: string;
+            gasUsed?: string;
         }[]
 ) {
     if (Array.isArray(data)) {
@@ -318,6 +328,11 @@ export async function createRebalanceLog(
                 amountOut: d.amountOut,
                 reason: d.reason,
                 executor: d.executor,
+                userOpHash: d.userOpHash,
+                transactionHash: d.transactionHash,
+                blockNumber: d.blockNumber,
+                status: d.status,
+                gasUsed: d.gasUsed,
             })),
             skipDuplicates: true,
         });
@@ -333,6 +348,11 @@ export async function createRebalanceLog(
             amountOut: data.amountOut,
             reason: data.reason,
             executor: data.executor,
+            userOpHash: data.userOpHash,
+            transactionHash: data.transactionHash,
+            blockNumber: data.blockNumber,
+            status: data.status,
+            gasUsed: data.gasUsed,
         },
     });
 }
@@ -391,23 +411,35 @@ export async function getContractConfigByAddress(address: string) {
     return prisma.contractConfig.findUnique({ where: { contractAddress: address } });
 }
 
+export async function getContractConfigByName(name: string) {
+    return prisma.contractConfig.findUnique({ where: { name } });
+}
+
+export async function getContractAddressByName(name: string): `0x${string}`| null> {
+    const config = await prisma.contractConfig.findUnique({ where: { name } });
+    return config?.contractAddress as `0x${string}` ?? null;
+}
+
 export async function createOrUpdateContractConfig(data: {
+    name: string;
     contractAddress: string;
-    network: string;
+    network?: string;
     owner: string;
     paused?: boolean;
 }) {
     return prisma.contractConfig.upsert({
         where: { contractAddress: data.contractAddress },
         update: {
+            name: data.name,
             network: data.network,
             owner: data.owner,
             paused: data.paused,
             updatedAt: new Date(),
         },
         create: {
+            name: data.name,
             contractAddress: data.contractAddress,
-            network: data.network,
+            network: data.network ?? "monadTestnet",
             owner: data.owner,
             paused: data.paused ?? false,
         },
@@ -417,12 +449,12 @@ export async function createOrUpdateContractConfig(data: {
 export async function getAllContractConfigs(network?: string) {
     return prisma.contractConfig.findMany({
         where: network ? { network } : undefined,
-        orderBy: { createdAt: "desc" },
+        orderBy: { updatedAt: "desc" },
     });
 }
-export async function updateContractPauseStatus(contractAddress: string, paused: boolean) {
+export async function updateContractPauseStatus(name: string, paused: boolean) {
     return prisma.contractConfig.update({
-        where: { contractAddress },
+        where: { name },
         data: { paused },
     });
 }
@@ -432,6 +464,11 @@ export async function deleteContractConfig(contractAddress: string) {
     });
 }
 
+export async function deleteContractConfigByName(name: string) {
+    return prisma.contractConfig.delete({
+        where: { name },
+    });
+}
 
 //
 // BOT

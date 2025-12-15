@@ -43,14 +43,14 @@ export function decryptPrivateKey(encryptedText: string): `0x${string}` {
 }
 
 
-const botPrivateKey = generatePrivateKey()
-// Derive the wallet/account from the private key
-const botAccount = privateKeyToAccount(botPrivateKey);
+// const botPrivateKey = generatePrivateKey()
+// // Derive the wallet/account from the private key
+// const botAccount = privateKeyToAccount(botPrivateKey);
 
-// Extract the bot's address
-const botAddress = botAccount.address;
+// // Extract the bot's address
+// const botAddress = botAccount.address;
 
-console.log("Bot Private Key:", botPrivateKey);
-console.log("Bot Address:", botAddress);
-console.log('encrypted',encryptPrivateKey(botPrivateKey))
+// console.log("Bot Private Key:", botPrivateKey);
+// console.log("Bot Address:", botAddress);
+// console.log('encrypted',encryptPrivateKey(botPrivateKey))
 // console.log(decryptPrivateKey('RBsgBJ7Hqtjjj9jZRjuldc+Xn7EqyTswTv3ueM/TNrmcbLVH4WzGuUQXae7zx9Qmp7zKc7f+krvKq782zEbmUCmzDSC8S8HmLuBTF5Fr0T+5tFFsQfo7jkm/7dfMZlX6'))

@@ -77,7 +77,7 @@ export const agentWorker = new Worker("ai-agent-queue", async job => {
        console.log(job)// should print out 'process-agent'
 
         const startTime = Date.now();
-        const { botName, smartAccountId, marketData, agentMode,currentWeights,recentRebalances,totalValue } = job.data;
+        const { botName, smartAccountId,delegationId ,marketData, agentMode,currentWeights,recentRebalances,totalValue } = job.data;
 
 
         try {
@@ -90,7 +90,7 @@ export const agentWorker = new Worker("ai-agent-queue", async job => {
             await job.updateProgress(10);
 
             // Run the AI agent
-            const result = await runAIAgent(botName, smartAccountId, marketData, agentMode,currentWeights,recentRebalances,totalValue);
+            const result = await runAIAgent(botName, smartAccountId,delegationId, marketData, agentMode,currentWeights,recentRebalances,totalValue);
 
             await job.updateProgress(100);
 

@@ -14,7 +14,7 @@ import contractConfigRouter from "./routes/contractConfigRoute.js";
 import botRouter from "./routes/botRoute.js";
 import loginRouter from "./routes/loginRoute.js";
 import oracleRouter from "./routes/oracleRoute.js";
-// import blockchainRouter from "./routes/blockchainRoute.js";
+import blockchainRouter from "./routes/blockchainRoute.js";
 // import {adminJs, adminRouter} from "./admin/dashboard.js";
 import "./modules/jobs/agentQueue.js";
 import {addAgentJob} from "./modules/jobs/agentQueue.js";
@@ -54,7 +54,7 @@ app.use("/api/rebalance", rebalanceRouter);
 app.use("/api/contract",authMiddleware,requireRole(["admin"]),contractConfigRouter);
 app.use('/api/bot',authMiddleware,requireRole(["admin"]),botRouter);
 app.use('/api/admin/price-polling', oracleRouter);
-// app.use('/api/blockchain',blockchainRouter);
+app.use('/api/blockchain',blockchainRouter);
 // Error logging middleware (logs errors first)
 app.use(errorLogger);
 
@@ -62,3 +62,6 @@ app.use(errorLogger);
 app.use(errorHandler);
 
 export default app;
+
+
+// DONE : readjust
