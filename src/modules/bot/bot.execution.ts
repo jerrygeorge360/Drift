@@ -276,36 +276,3 @@ function findTokenAddress(portfolio: any, tokenSymbol: string): string | null {
     // Return the token's address if found
     return allocation?.token?.address || null;
 }
-
-// const mar = {
-//     "usd-coin": {
-//         usd: 1,
-//         usd_market_cap: 76770942445.89798,
-//         usd_24h_vol: 21189195729.347694,
-//         usd_24h_change: -0.002882751937147867,
-//         last_updated_at: 1761126649,
-//     },
-// };
-// const newbot = {'name':"Drift",'address':'0x1235aC2B678202802b5071a7AadF7efe0E172d0E'}
-// const work = await executeRebalances(newbot,"f24a292e-d164-4416-b5cb-849693403d8b","1db590d1-8c8f-48ed-b383-eb12378edeb8",s,'fa',mar,120)
-// console.log(work);
-
-// const txResult = await redeemDelegationService(smartAccountId, rebalanceParams);
-
-// const txResult = await redeemDelegationService(
-//     "f24a292e-d164-4416-b5cb-849693403d8b",
-//     {
-//         botAddress: "0x1235aC2B678202802b5071a7AadF7efe0E172d0E",
-//         tokenIn: "0x2222222222222222222222222222222222222222",   // USDC address
-//         tokenOut: "0x3333333333333333333333333333333333333333",  // USDT address
-//         amountOut: BigInt("1000000000000000000"),  // 1 USDT (in wei)
-//         amountInMin: BigInt("980000000000000000"), // 0.98 USDC (in wei)
-//         swapPath: [
-//             "0x3333333333333333333333333333333333333333",
-//             "0x2222222222222222222222222222222222222222",
-//         ],
-//         reason: "hello",
-//     }
-// );
-//
-// console.log(txResult);

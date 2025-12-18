@@ -16,6 +16,8 @@ import loginRouter from "./routes/loginRoute.js";
 import oracleRouter from "./routes/oracleRoute.js";
 import blockchainRouter from "./routes/blockchainRoute.js";
 import "./modules/jobs/agentQueue.js";
+import { userAgentWebhook } from "./controllers/webhookController.js";
+import { verifyWebhookAuth } from "./middleware/webhookMiddleware.js";
 
 const app = express();
 
@@ -43,8 +45,9 @@ app.use("/api/portfolio",authMiddleware,requireRole(["user"]), portfolioRouter);
 app.use("/api/rebalance", rebalanceRouter);
 app.use("/api/contract",authMiddleware,requireRole(["admin"]),contractConfigRouter);
 app.use('/api/bot',authMiddleware,requireRole(["admin"]),botRouter);
-app.use('/api/admin/price-polling', oracleRouter);
+app.use('/api/admin/price-polling',requireRole(["admin"]),oracleRouter);
 app.use('/api/blockchain',blockchainRouter);
+app.use('/api/webhook',verifyWebhookAuth,userAgentWebhook);
 app.use(errorLogger);
 app.use(errorHandler);
 

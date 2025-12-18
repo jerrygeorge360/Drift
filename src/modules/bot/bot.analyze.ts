@@ -9,7 +9,7 @@ export function analyzePortfolio(portfolio: any, marketData?: any) {
         return acc + value;
     }, 0);
 
-// Calculate current weights vs target allocations
+    // Calculate current weights vs target allocations
     const currentWeights = allocations.map((a: { token: { id: string; symbol: string }; amount: number; percent: number }) => {
         const price = marketData?.[a.token.id]?.usd ?? 1;
         const value = a.amount * price;

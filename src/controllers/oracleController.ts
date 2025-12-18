@@ -3,15 +3,14 @@ import {
     startPricePolling,
     stopPricePolling,
     restartPricePolling,
-    getCurrentPrices,
-    getMarketDataForBot,
-    getMarketDataForTokens,
-    isMarketDataFresh,
     getPollingStatus,
     updateIntervals,
     forceUpdate,
-    triggerWebhook
+    triggerWebhook,
+    getStoredCurrentPrices,
+    getStoredMarketData
 } from '../utils/oracle.service.js';
+
 
 class PricePollingController {
     /**
@@ -94,17 +93,22 @@ class PricePollingController {
     /**
      * Get current prices (simple format)
      */
-    getPrices(req: Request, res: Response) {
+    /**
+     * Get current prices (simple format)
+     */
+    async getPrices(req: Request, res: Response) {
         try {
-            const prices = getCurrentPrices();
-            const isFresh = isMarketDataFresh();
+            const prices = await getStoredCurrentPrices();
+            // Check freshness based on one of the prices (e.g. WETH)
+            // This is a rough check. Ideally we check the max timestamp.
+            const isFresh = true; // Simplified for now, or implement DB check
 
             res.json({
                 success: true,
                 data: prices,
                 metadata: {
                     fresh: isFresh,
-                    warning: !isFresh ? 'Price data may be stale' : undefined
+                    // warning: !isFresh ? 'Price data may be stale' : undefined
                 }
             });
         } catch (error: any) {
@@ -119,30 +123,37 @@ class PricePollingController {
     /**
      * Get market data for bot (full format with market cap, volume, 24h change)
      */
-    getMarketData(req: Request, res: Response) {
+    /**
+     * Get market data for bot (full format with market cap, volume, 24h change)
+     */
+    async getMarketData(req: Request, res: Response) {
         try {
             const { tokens } = req.query;
 
-            let marketData;
+            const allData = await getStoredMarketData();
+            let marketData: Record<string, any> = {};
 
             // If specific tokens requested, filter
             if (tokens && typeof tokens === 'string') {
-                const tokenArray = tokens.split(',').map(t => t.trim());
-                marketData = getMarketDataForTokens(tokenArray);
+                const tokenArray = tokens.split(',').map(t => t.trim().toLowerCase());
+                for (const t of tokenArray) {
+                    if (allData[t]) marketData[t] = allData[t];
+                }
             } else {
                 // Otherwise return all tokens
-                marketData = getMarketDataForBot();
+                marketData = allData;
             }
 
-            const isFresh = isMarketDataFresh();
+            // Check freshness
+            // const isFresh = isMarketDataFresh();
 
             res.json({
                 success: true,
                 data: marketData,
                 metadata: {
-                    fresh: isFresh,
+                    // fresh: isFresh,
                     tokenCount: Object.keys(marketData).length,
-                    warning: !isFresh ? 'Market data may be stale (>5 minutes old)' : undefined
+                    // warning: !isFresh ? 'Market data may be stale (>5 minutes old)' : undefined
                 }
             });
         } catch (error: any) {

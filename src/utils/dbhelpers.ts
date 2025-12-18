@@ -157,12 +157,14 @@ export async function getDelegationsBySmartAccount(smartAccountId: string) {
         where: { smartAccountId, revoked: false },
     });
 }
-
-export async function getDelegationBySmartAccountId(smartAccountId: string) {
-    return prisma.delegation.findFirst({
-        where: { smartAccountId, revoked: false },
-    });
+export async function getDelegationBySmartAccountId(
+  smartAccountId: string
+) {
+  return prisma.delegation.findUnique({
+    where: { smartAccountId,revoked:false },
+  });
 }
+
 
 export async function getDelegationById(id: string) {
     return prisma.delegation.findUnique({

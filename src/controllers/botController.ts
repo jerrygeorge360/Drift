@@ -49,7 +49,7 @@ export async function getBotByIdController(req: Request, res: Response) {
     }
 }
 
-// Update bot info
+// Update bot info 
 export async function updateBotController(req: Request, res: Response) {
     try {
         const { id } = req.params;
@@ -74,7 +74,7 @@ export async function deleteBotController(req: Request, res: Response) {
 }
 
 
-
+// Run agent
 export async function runAgentController(req: Request, res: Response) {
     const { botName, smartAccountId,delegationId } = req.body;
 
@@ -85,3 +85,5 @@ export async function runAgentController(req: Request, res: Response) {
         res.status(500).json({ message: error.message });
     }
 }
+
+

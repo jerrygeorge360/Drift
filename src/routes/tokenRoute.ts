@@ -15,6 +15,6 @@ tokenRouter.post('/',authMiddleware,requireRole(["admin"]), createTokenControlle
 tokenRouter.get('/', getAllTokensController);               // GET /api/tokens
 tokenRouter.get('/symbol/:symbol', getTokenBySymbolController); // GET /api/tokens/symbol/ETH
 tokenRouter.get('/address/:address', getTokenByAddressController); // GET /api/tokens/address/0x...
-tokenRouter.delete('/:id',authMiddleware, deleteTokenController);          // DELETE /api/tokens/:id
+tokenRouter.delete('/:id',authMiddleware,requireRole(["admin"]), deleteTokenController);          // DELETE /api/tokens/:id
 
 export default tokenRouter;
