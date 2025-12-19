@@ -1,4 +1,4 @@
-
+import { Prisma, Portfolio } from "@prisma/client";
 export type HealthState = "HEALTHY" | "DEGRADED" | "UNHEALTHY" | "DEAD";
 
 export type RebalanceToken = {
@@ -30,3 +30,14 @@ export type RebalanceParams = {
   swapPath: string[];
   reason: string;
 };
+
+
+export type PortfolioWithAllocations = Prisma.PortfolioGetPayload<{
+    include: {
+        allocations: {
+            include: {
+                token: true;
+            };
+        };
+    };
+}>;

@@ -1,15 +1,6 @@
-import { RebalancePortfolio } from "./rebalancer.types.js";
-import { Prisma, Portfolio } from "@prisma/client";
+import { RebalancePortfolio,PortfolioWithAllocations } from "./rebalancer.types.js";
 
-type PortfolioWithAllocations = Prisma.PortfolioGetPayload<{
-    include: {
-        allocations: {
-            include: {
-                token: true;
-            };
-        };
-    };
-}>;
+
 
 /**
  * Maps a Prisma portfolio with its allocations to a RebalancePortfolio object.

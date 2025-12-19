@@ -56,32 +56,8 @@ export interface RebalanceLog {
     timestamp?: Date;
 }
 
-export interface ExecutionResult {
-    status: "success" | "partial" | "failed" | "idle" | "no_adjustments";
-    reason: string;
-    action?: string;
-    executedCount?: number;
-    failedCount?: number;
-    rebalanceResults?: any[];
-    failedAdjustments?: any[];
-    totalValue?: number;
-    transactionHashes?: string[];
-    timestamp: string;
-    botId?: string;
-    botName?: string;
-    smartAccountId?: string;
-    agentMode?: string;
-}
 
-export type AgentAction = "rebalance" | "none";
 
-export interface AgentDecision {
-    action: AgentAction;
-    reason: string;
-    adjustments: LLMAdjustment[];
-    confidence?: number;
-    timestamp: string;
-}
 
 export type RebalanceParams = {
     botAddress: string;

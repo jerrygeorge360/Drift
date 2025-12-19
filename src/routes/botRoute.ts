@@ -5,7 +5,6 @@ import {
     getBotByIdController,
     updateBotController,
     deleteBotController,
-    runAgentController,
 } from "../controllers/botController.js";
 
 const botRouter = express.Router();
@@ -24,8 +23,5 @@ botRouter.patch("/:id", updateBotController);
 
 // DELETE /api/bots/:id
 botRouter.delete("/:id", deleteBotController);
-
-// RUN /api/bots/
-botRouter.post("/run",runAgentController)
 
 export default botRouter;
