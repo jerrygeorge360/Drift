@@ -48,14 +48,15 @@ model Delegation {
 }
 
 model Portfolio {
-  id             String                @id @default(uuid())
-  smartAccountId String                @unique
-  name           String
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-  smartAccount   SmartAccount          @relation(fields: [smartAccountId], references: [id], onDelete: Cascade)
-  allocations    PortfolioAllocation[]
-  rebalanceLogs  RebalanceLog[]
+  id               String                @id @default(uuid())
+  smartAccountId   String                @unique
+  name             String
+  portfolioAddress String?               @unique  // On-chain portfolio contract address
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  smartAccount     SmartAccount          @relation(fields: [smartAccountId], references: [id], onDelete: Cascade)
+  allocations      PortfolioAllocation[]
+  rebalanceLogs    RebalanceLog[]
 }
 
 model Token {

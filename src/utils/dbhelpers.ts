@@ -227,13 +227,50 @@ export async function updatePortfolioName(smartAccountId: string, newName: strin
 }
 
 // create portfolio(initialization)
-export async function createPortfolio(smartAccountId: string, name: string) {
+export async function createPortfolio(smartAccountId: string, name: string, portfolioAddress?: string) {
+    const portfolioData: any = {
+        smartAccountId,
+        name,
+    };
+    
+    // Add portfolioAddress if provided (after schema migration)
+    if (portfolioAddress) {
+        portfolioData.portfolioAddress = portfolioAddress;
+    }
+    
     return prisma.portfolio.create({
-        data: {
-            smartAccountId,
-            name,
-        },
+        data: portfolioData,
     });
+}
+
+// Update portfolio with on-chain address
+export async function updatePortfolioAddress(smartAccountId: string, portfolioAddress: string) {
+    return prisma.portfolio.update({
+        where: { smartAccountId },
+        data: { portfolioAddress } as any, // Temporary type assertion until migration
+    });
+}
+
+// Get portfolio address by smart account ID
+export async function getPortfolioAddressBySmartAccountId(smartAccountId: string): Promise<string | null> {
+    try {
+        const portfolio = await prisma.portfolio.findUnique({
+            where: { smartAccountId },
+            select: { 
+                id: true, 
+                smartAccountId: true,
+                // portfolioAddress: true, // Enable after migration
+            } as any,
+        });
+        
+        // Temporary: return null until migration is complete
+        // After migration, change this to: return portfolio?.portfolioAddress || null;
+        console.warn("portfolioAddress field not yet migrated in database");
+        return null;
+    } catch (error) {
+        console.error("Error getting portfolio address:", error);
+        return null;
+    }
 }
 
 //

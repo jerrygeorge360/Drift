@@ -14,7 +14,8 @@ import {
     getPortfolioBySmartAccountId,
     findTokenByAddress,
     createRebalanceLog,
-    getContractAddressByName
+    getContractAddressByName,
+    getPortfolioAddressBySmartAccountId
 } from "../utils/dbhelpers.js";
 import { decryptPrivateKey } from "../utils/encryption.js";
 import { redeemDelegationService } from "../modules/bot/bot.delegation.js";
@@ -64,17 +65,20 @@ export const createDelegationController = async (req: AuthRequest, res: Response
 
         const delegatorSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatorPrivateKey)
         const delegateSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatePrivateKey)
-        const smartPorfolioAddress = await getContractAddressByName("SmartPortfolioContract");
-        // DONE :don't hardcode the smartportfolioaddress
-        if (!smartPorfolioAddress) {
-            return res.status(404).json({ message: "Smart portfolio contract not found" });
+        
+        // Get user's portfolio address (individual portfolio from factory)
+        const userPortfolioAddress = await getPortfolioAddressBySmartAccountId(smartAccountId);
+        if (!userPortfolioAddress) {
+            return res.status(404).json({ 
+                message: "User portfolio not found. Please create and deploy a portfolio first." 
+            });
         }
         // Create and sign the delegation
 
         const signature = await delegationService(
             delegatorSmartAccount,
             delegateSmartAccount,
-            smartPorfolioAddress,
+            userPortfolioAddress as `0x${string}`,
             monitoredTokens
         );
 

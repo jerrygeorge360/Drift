@@ -8,13 +8,14 @@ import {
 
 const { DelegationManager } = contracts;
 import { encodeFunctionData, http, createPublicClient, erc20Abi, zeroAddress } from "viem";
-import smartPortfolio from "../../contracts/abi/SmartPortfolio.json" with { type: 'json' };
+import userPortfolio from "../../contracts/abi/UserPortfolio.json" with { type: 'json' };
 import { createBundlerClient } from "viem/account-abstraction";
 import { monadTestnet as chain } from "viem/chains";
 
 // Type definitions
 import { RebalanceParams } from "../bot/bot.types.js";
 import { RedeemResult } from "./types.js";
+import { getPortfolioAddressBySmartAccountId } from "../../utils/dbhelpers.js";
 
 // Create a signed delegation with scopes
 export const createSignedDelegation = async (
@@ -87,7 +88,7 @@ export const redeemDelegation = async (
 
     // Encode the SmartPortfolio rebalance calldata
     const rebalanceCalldata = encodeFunctionData({
-        abi: smartPortfolio.abi,
+        abi: userPortfolio.abi,
         functionName: "executeRebalance",
         args: [
             rebalanceParams.botAddress,
@@ -246,5 +247,27 @@ export const autoDeploySmartAccount = async (
     };
 };
 
+/**
+ * Get user's portfolio address for delegation
+ * @param smartAccountId - User's smart account ID
+ * @returns Promise<string | null>
+ */
+export const getUserPortfolioAddress = async (smartAccountId: string): Promise<`0x${string}` | null> => {
+    try {
+        // First try to get from database
+        const portfolioAddress = await getPortfolioAddressBySmartAccountId(smartAccountId);
+        if (portfolioAddress) {
+            return portfolioAddress as `0x${string}`;
+        }
+
+        // If not in database, try to get from factory contract
+        // TODO: Implement factory lookup when needed
+        console.warn("Portfolio address not found in database for smartAccountId:", smartAccountId);
+        return null;
+    } catch (error) {
+        console.error("Error getting portfolio address:", error);
+        return null;
+    }
+};
 
 //DONE : organize this
