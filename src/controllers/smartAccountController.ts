@@ -12,7 +12,14 @@ import {
     findSmartAccountById,
     getUserSmartAccounts
 } from "../utils/dbhelpers.js"
-import { monadTestnet, sepolia } from "viem/chains";
+import { monadTestnet } from "viem/chains";
+import { 
+    initializeWithValidation, 
+    getMonadTestnetEnvironment,
+    MONAD_TESTNET_CHAIN_ID 
+} from "../config/metamask_monadtestnet_config.js";
+
+
 
 export interface AuthRequest extends Request {
     user?: { id: string; address: string };
@@ -21,11 +28,22 @@ export interface AuthRequest extends Request {
 
 export const createSmartAccount = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-
+        console.log("Create Smart Account request body:", req.body);
         if (!req.user?.address || !req.user?.id) {
             return res.status(401).json({ message: "Unauthorized: User info missing" });
         }
 
+        // Initialize MetaMask environment for Monad testnet
+        try {
+            initializeWithValidation();
+            console.log("✅ MetaMask environment initialized for smart account creation");
+        } catch (envError) {
+            console.error("❌ Failed to initialize MetaMask environment:", envError);
+            return res.status(500).json({ 
+                message: "Failed to initialize MetaMask environment",
+                error: envError instanceof Error ? envError.message : String(envError)
+            });
+        }
 
         const walletAddress = req.user.address;
         const userId = req.user.id;
@@ -35,14 +53,21 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
         const account = privateKeyToAccount(privateKey);
         const encrypted = encryptPrivateKey(privateKey);
 
+        // Get the Monad testnet environment to ensure we're using the correct contracts
+        const monadEnvironment = getMonadTestnetEnvironment();
+        
+        console.log("Creating smart account with Monad testnet environment...");
+        console.log("Using Hybrid implementation address:", monadEnvironment.implementations.Hybrid);
+        console.log("Using SimpleFactory address:", monadEnvironment.SimpleFactory);
 
         const smartAccount = await toMetaMaskSmartAccount({
             client: publicClient,
-            implementation: Implementation.Hybrid,
+            implementation: Implementation.Hybrid, // This will use your overridden environment
             deployParams: [account.address, [], [], []],
             deploySalt: "0x",
             signer: { account },
         });
+
         const ownerAddress = account.address;
 
         const createdSmartAccount = await createSmartAccountdb(userId, smartAccount.address, encrypted, walletAddress, ownerAddress);
@@ -99,8 +124,18 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
         }
 
         return res.status(200).json({
-            message: "created smartAccount",
-            account: createdSmartAccount,
+            message: "Smart account created successfully",
+            account: {
+                ...createdSmartAccount,
+                environmentConfigured: true,
+                chainId: MONAD_TESTNET_CHAIN_ID,
+                contractAddresses: {
+                    simpleFactory: monadEnvironment.SimpleFactory,
+                    delegationManager: monadEnvironment.DelegationManager,
+                    hybridImplementation: monadEnvironment.implementations.Hybrid,
+                    entryPoint: monadEnvironment.EntryPoint,
+                },
+            },
             deployment: deploymentResult,
         });
 

@@ -1,5 +1,5 @@
 import {createPublicClient, http} from "viem";
-import {monadTestnet} from "viem/chains";
+import {monadTestnet,sepolia} from "viem/chains";
 
 export const publicClient = createPublicClient({
     chain:monadTestnet,

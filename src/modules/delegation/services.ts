@@ -203,6 +203,7 @@ export const autoDeploySmartAccount = async (
     let gasParams: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint };
     try {
         const pimlicoFee = await pimlicoClient.getUserOperationGasPrice();
+        console.log("Pimlico gas prices:", pimlicoFee);
         gasParams = pimlicoFee.fast;
     } catch {
         const gasEstimate = await publicClient.estimateFeesPerGas();
@@ -218,11 +219,14 @@ export const autoDeploySmartAccount = async (
         account: smartAccount,
         calls: [
             {
-                to: zeroAddress, // Send to self
+                to: smartAccount.address, // Send to self
                 value: 0n,
                 data: "0x",
             },
         ],
+        // callGasLimit: 5000000n,
+        // verificationGasLimit: 3000000n,
+        // preVerificationGas: 300000n,
         maxFeePerGas: gasParams.maxFeePerGas,
         maxPriorityFeePerGas: gasParams.maxPriorityFeePerGas,
         paymaster: paymasterClient,

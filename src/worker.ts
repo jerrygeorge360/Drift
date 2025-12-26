@@ -1,7 +1,8 @@
 import dotenv from "dotenv";
-import "./modules/workers/agent.worker.js";
 
 dotenv.config();
+
+import "./modules/workers/agent.worker.js";
 
 console.log("[WorkerProcess] Background workers started and listening...");
 

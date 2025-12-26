@@ -1,5 +1,5 @@
 import { publicClient } from "../controllers/clients.js";
-import smartPortfolio from "../contracts/abi/SmartPortfolio.json" with { type: 'json' };
+import smartPortfolio from "../contracts/abi/UserPortfolio.json" with { type: 'json' };
 
 const SMART_PORTFOLIO_ABI = smartPortfolio.abi;
 

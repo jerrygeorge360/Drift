@@ -23,12 +23,12 @@ import { verifyWebhookAuth } from "./middleware/webhookMiddleware.js";
 
 const app = express();
 
-app.use(cors({
-    origin: process.env.DOMAIN_URL,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// app.use(cors({
+//     origin: process.env.DOMAIN_URL,
+//     credentials: true,
+//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//     allowedHeaders: ['Content-Type', 'Authorization']
+// }));
 
 // Middleware
 
