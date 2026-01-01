@@ -1,13 +1,15 @@
 import { Router } from "express";
 import {
     createSmartAccount,
-    deleteSmartAccount, getSmartAccountById,
+    deleteSmartAccount, 
+    getSmartAccountById,
     getUserSmartAccountList
 } from "../controllers/smartAccountController.js";
+import { getSupportedChains } from "../config/chainConfig.js";
 import {getUserSmartAccounts} from "../utils/dbhelpers.js";
 const smartAccountRouter = Router();
 
-
+smartAccountRouter.get('/chains', getSupportedChains);
 smartAccountRouter.post('/', createSmartAccount);
 smartAccountRouter.delete('/:id', deleteSmartAccount);
 smartAccountRouter.get('/', getUserSmartAccountList);

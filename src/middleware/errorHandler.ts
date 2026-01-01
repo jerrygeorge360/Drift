@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { logger } from "../utils/logger.js";
 
 export default function errorHandler(
     err: any,
@@ -6,6 +7,6 @@ export default function errorHandler(
     res: Response,
     next: NextFunction
 ) {
-    console.error(err.stack);
+    logger.error("Unhandled Error", err);
     res.status(500).json({ error: "Internal Server Error" });
 }

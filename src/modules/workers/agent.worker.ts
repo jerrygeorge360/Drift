@@ -1,6 +1,7 @@
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { SnapshotAgent } from "../agent/agent.js";
+import { logger } from "../../utils/logger.js";
 
 // Redis connection for the worker
 const connection = new Redis({
@@ -9,19 +10,27 @@ const connection = new Redis({
     maxRetriesPerRequest: null,
 });
 
+connection.on("connect", () => {
+    logger.info(`[AgentWorker] Connected to Redis at ${connection.options.host}:${connection.options.port}`);
+});
+
+connection.on("error", (err) => {
+    logger.error("[AgentWorker] Redis connection error", err);
+});
+
 export const agentWorker = new Worker(
     "ai-agent-queue",
     async (job) => {
-        console.log(`[AgentWorker] Processing job #${job.id}...`);
+        logger.info(`[AgentWorker] Processing job #${job.id}...`);
 
         try {
             const agent = new SnapshotAgent();
             const result = await agent.run();
 
-            console.log(`[AgentWorker] Job #${job.id} completed.`);
+            logger.info(`[AgentWorker] Job #${job.id} completed.`);
             return result;
         } catch (error: any) {
-            console.error(`[AgentWorker] Error in job #${job.id}:`, error.message);
+            logger.error(`[AgentWorker] Error in job #${job.id}`, error);
             throw error;
         }
     },
@@ -32,11 +41,11 @@ export const agentWorker = new Worker(
 );
 
 agentWorker.on("completed", (job) => {
-    console.log(`[AgentWorker] Job #${job.id} marked as completed.`);
+    logger.info(`[AgentWorker] Job #${job.id} marked as completed.`);
 });
 
 agentWorker.on("failed", (job, err) => {
-    console.error(`[AgentWorker] Job #${job?.id} failed:`, err.message);
+    logger.error(`[AgentWorker] Job #${job?.id} failed`, err);
 });
 
-console.log("[AgentWorker] Worker initialized and listening for jobs...");
+logger.info("[AgentWorker] Worker initialized and listening for jobs...");

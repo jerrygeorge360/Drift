@@ -38,3 +38,4 @@ export function decryptPrivateKey(encryptedText: string): `0x${string}` {
     ]);
     return decrypted.toString("utf8") as `0x${string}`;
 }
+

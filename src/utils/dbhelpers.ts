@@ -1,6 +1,7 @@
 import prisma from "../config/db.js";
 import { SmartAccount } from "viem/account-abstraction";
 import { decryptPrivateKey, encryptPrivateKey } from "./encryption.js";
+import { logger } from "./logger.js";
 import type { Bot as BotModel } from "@prisma/client";
 
 //
@@ -158,11 +159,11 @@ export async function getDelegationsBySmartAccount(smartAccountId: string) {
     });
 }
 export async function getDelegationBySmartAccountId(
-  smartAccountId: string
+    smartAccountId: string
 ) {
-  return prisma.delegation.findUnique({
-    where: { smartAccountId,revoked:false },
-  });
+    return prisma.delegation.findUnique({
+        where: { smartAccountId, revoked: false },
+    });
 }
 
 
@@ -232,12 +233,12 @@ export async function createPortfolio(smartAccountId: string, name: string, port
         smartAccountId,
         name,
     };
-    
+
     // Add portfolioAddress if provided (after schema migration)
     if (portfolioAddress) {
         portfolioData.portfolioAddress = portfolioAddress;
     }
-    
+
     return prisma.portfolio.create({
         data: portfolioData,
     });
@@ -256,19 +257,19 @@ export async function getPortfolioAddressBySmartAccountId(smartAccountId: string
     try {
         const portfolio = await prisma.portfolio.findUnique({
             where: { smartAccountId },
-            select: { 
-                id: true, 
-                smartAccountId: true,
-                // portfolioAddress: true, // Enable after migration
-            } as any,
+            select: {
+                portfolioAddress: true,
+            },
         });
-        
-        // Temporary: return null until migration is complete
-        // After migration, change this to: return portfolio?.portfolioAddress || null;
-        console.warn("portfolioAddress field not yet migrated in database");
-        return null;
+
+        if (!portfolio) {
+            logger.warn("Portfolio not found for smartAccountId", smartAccountId);
+            return null;
+        }
+
+        return portfolio.portfolioAddress ?? null;
     } catch (error) {
-        console.error("Error getting portfolio address:", error);
+        logger.error("Error getting portfolio address", error);
         return null;
     }
 }
@@ -453,10 +454,12 @@ export async function getContractConfigByAddress(address: string) {
 export async function getContractConfigByName(name: string) {
     return prisma.contractConfig.findUnique({ where: { name } });
 }
-
 export async function getContractAddressByName(name: string): Promise<`0x${string}` | null> {
-    const config = await prisma.contractConfig.findUnique({ where: { name } });
-    return config?.contractAddress as `0x${string}` ?? null;
+    const config = await prisma.contractConfig.findUnique({
+        where: { name },
+        select: { contractAddress: true },
+    });
+    return (config?.contractAddress as `0x${string}`) ?? null;
 }
 
 export async function createOrUpdateContractConfig(data: {

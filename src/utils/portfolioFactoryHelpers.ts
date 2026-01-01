@@ -1,9 +1,11 @@
-import { encodeFunctionData, createPublicClient, http } from "viem";
-import { monadTestnet as chain } from "viem/chains";
+import { encodeFunctionData, createPublicClient, http, Chain } from "viem";
+import { monadTestnet, sepolia } from "viem/chains";
 import { createBundlerClient } from "viem/account-abstraction";
 import portfolioFactory from "../contracts/abi/PortfolioFactory.json" with { type: 'json' };
 import { MetaMaskSmartAccount } from "@metamask/smart-accounts-kit";
 import { getContractAddressByName } from "./dbhelpers.js";
+import { SupportedChain, getChainConfig } from "../config/chainConfig.js";
+import { logger } from "./logger.js";
 
 export interface DeployPortfolioResult {
     success: boolean;
@@ -19,19 +21,24 @@ export interface DeployPortfolioResult {
  * @param rpcUrl - The RPC URL for the bundler
  * @param pimlicoClient - Pimlico client for gas estimation
  * @param paymasterClient - Optional paymaster client for gas sponsorship
+ * @param chainId - The chain to deploy on (default: sepolia)
  * @returns Promise<DeployPortfolioResult>
  */
 export const deployUserPortfolio = async (
     userSmartAccount: MetaMaskSmartAccount,
     rpcUrl: string,
     pimlicoClient: any,
-    paymasterClient?: any
+    paymasterClient?: any,
+    chainId: SupportedChain = "sepolia"
 ): Promise<DeployPortfolioResult> => {
     try {
-        console.log("Deploying portfolio for user:", userSmartAccount.address);
+        logger.info("Deploying portfolio for user", { userAddress: userSmartAccount.address, chainId });
+
+        const chainConfig = getChainConfig(chainId);
+        const chain = chainConfig.chain;
 
         // Get factory contract address
-        const factoryAddress = await getContractAddressByName("PortfolioFactory");
+        const factoryAddress = await getContractAddressByName("PortfolioFactory_Sepolia");
         if (!factoryAddress) {
             return { success: false, error: "PortfolioFactory contract not found in database" };
         }
@@ -76,16 +83,16 @@ export const deployUserPortfolio = async (
             paymaster: paymasterClient,
         });
 
-        console.log("Portfolio creation UserOperation sent:", userOpHash);
+        logger.info("Portfolio creation UserOperation sent", userOpHash);
 
         // Wait for confirmation
         const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
 
         if (receipt.status !== "success") {
-            return { 
-                success: false, 
+            return {
+                success: false,
                 error: `Portfolio creation failed: ${receipt.transactionHash}`,
-                transactionHash: receipt.transactionHash 
+                transactionHash: receipt.transactionHash
             };
         }
 
@@ -97,15 +104,15 @@ export const deployUserPortfolio = async (
         );
 
         if (!portfolioAddress) {
-            return { 
-                success: false, 
+            return {
+                success: false,
                 error: "Failed to get portfolio address from factory",
                 transactionHash: receipt.transactionHash,
-                userOpHash 
+                userOpHash
             };
         }
 
-        console.log("Portfolio deployed successfully:", portfolioAddress);
+        logger.info("Portfolio deployed successfully", portfolioAddress);
 
         return {
             success: true,
@@ -115,7 +122,7 @@ export const deployUserPortfolio = async (
         };
 
     } catch (error) {
-        console.error("Error deploying portfolio:", error);
+        logger.error("Error deploying portfolio", error);
         return {
             success: false,
             error: error instanceof Error ? error.message : "Unknown error during portfolio deployment",
@@ -127,16 +134,20 @@ export const deployUserPortfolio = async (
  * Get user's portfolio address from the factory contract
  * @param userAddress - User's smart account address
  * @param factoryAddress - Factory contract address
- * @param publicClient - Viem public client
+ * @param publicClient - Viem public client (optional)
+ * @param chainId - The chain to query (default: sepolia)
  * @returns Promise<string | null>
  */
 export const getPortfolioAddressFromFactory = async (
     userAddress: `0x${string}`,
     factoryAddress: `0x${string}`,
-    publicClient?: any
+    publicClient?: any,
+    chainId: SupportedChain = "sepolia"
 ): Promise<string | null> => {
     try {
         if (!publicClient) {
+            const chainConfig = getChainConfig(chainId);
+            const chain = chainConfig.chain;
             publicClient = createPublicClient({ chain, transport: http() });
         }
 
@@ -154,7 +165,7 @@ export const getPortfolioAddressFromFactory = async (
 
         return portfolioAddress;
     } catch (error) {
-        console.error("Error getting portfolio address from factory:", error);
+        logger.error("Error getting portfolio address from factory", error);
         return null;
     }
 };
@@ -162,16 +173,22 @@ export const getPortfolioAddressFromFactory = async (
 /**
  * Check if user already has a portfolio deployed via factory
  * @param userAddress - User's smart account address
+ * @param chainId - The chain to check (default: sepolia)
  * @returns Promise<boolean>
  */
-export const hasPortfolioDeployed = async (userAddress: `0x${string}`): Promise<boolean> => {
+export const hasPortfolioDeployed = async (
+    userAddress: `0x${string}`,
+    chainId: SupportedChain = "sepolia"
+): Promise<boolean> => {
     try {
         const factoryAddress = await getContractAddressByName("PortfolioFactory");
         if (!factoryAddress) return false;
 
+        const chainConfig = getChainConfig(chainId);
+        const chain = chainConfig.chain;
         const publicClient = createPublicClient({ chain, transport: http() });
-        const portfolioAddress = await getPortfolioAddressFromFactory(userAddress, factoryAddress, publicClient);
-        
+        const portfolioAddress = await getPortfolioAddressFromFactory(userAddress, factoryAddress, publicClient, chainId);
+
         return portfolioAddress !== null;
     } catch {
         return false;

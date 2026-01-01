@@ -1,23 +1,15 @@
 import express from 'express';
 import {
-    createPortfolioController,
-    getPortfolioController,
-    updatePortfolioNameController,
     deployPortfolioController,
+    getPortfolioController,
 } from "../controllers/portfolioController.js";
 
 const portfolioRouter = express.Router();
 
-// Create portfolio
-portfolioRouter.post("/", createPortfolioController);
-
-// Deploy portfolio on-chain
-portfolioRouter.post("/deploy", deployPortfolioController);
+// Deploy/Manage portfolio (Create/Update/Deploy)
+portfolioRouter.post("/", deployPortfolioController);
 
 // Get portfolio by smartAccountId
 portfolioRouter.get("/:smartAccountId", getPortfolioController);
-
-// Update portfolio name
-portfolioRouter.put("/:smartAccountId", updatePortfolioNameController);
 
 export default portfolioRouter;

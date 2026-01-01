@@ -1,5 +1,6 @@
 import dotenv from "dotenv"
 import app from "./app.js";
+import { logger } from "./utils/logger.js";
 dotenv.config();
 
 
@@ -11,7 +12,7 @@ if (!SERVER_PORT) {
 // import { startPricePolling } from "./utils/oracle.service.js";
 
 app.listen(Number(SERVER_PORT), "0.0.0.0", () => {
-    console.log(`Server running on port ${SERVER_PORT}`);
+    logger.info(`Server running on port ${SERVER_PORT}`);
 
     // Auto-start polling if enabled
     // Auto-start polling if enabled

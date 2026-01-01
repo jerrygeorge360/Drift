@@ -10,12 +10,13 @@ const { DelegationManager } = contracts;
 import { encodeFunctionData, http, createPublicClient, erc20Abi, zeroAddress } from "viem";
 import userPortfolio from "../../contracts/abi/UserPortfolio.json" with { type: 'json' };
 import { createBundlerClient } from "viem/account-abstraction";
-import { monadTestnet as chain } from "viem/chains";
+import { sepolia as chain } from "viem/chains";
 
 // Type definitions
 import { RebalanceParams } from "../bot/bot.types.js";
 import { RedeemResult } from "./types.js";
 import { getPortfolioAddressBySmartAccountId } from "../../utils/dbhelpers.js";
+import { logger } from "../../utils/logger.js";
 
 // Create a signed delegation with scopes
 export const createSignedDelegation = async (
@@ -30,7 +31,7 @@ export const createSignedDelegation = async (
         environment: delegatorSmartAccount.environment,
         scope: {
             type: "functionCall",
-            targets: [...tokenAddresses,smartPortfolioAddress],   // Must match exact contract
+            targets: [...tokenAddresses, smartPortfolioAddress],   // Must match exact contract
             selectors: [
                 "approve(address,uint256)",
                 "executeRebalance(address,address,address,uint256,uint256,address[],string)"
@@ -57,7 +58,7 @@ export const redeemDelegation = async (
     pimlicoClient: any,
     paymasterClient?: any
 ): Promise<RedeemResult> => {
-    console.log("Preparing delegation redemption...");
+    logger.info("Preparing delegation redemption...");
 
     // Public client + bundler client
     const publicClient = createPublicClient({ chain, transport: http() });
@@ -80,10 +81,10 @@ export const redeemDelegation = async (
         functionName: 'approve',
         args: [smartPortfolioAddress, rebalanceParams.amountIn]
     });
-    
-    const approvalExecution = createExecution({ 
+
+    const approvalExecution = createExecution({
         target: rebalanceParams.tokenIn as `0x${string}`,
-        callData: approveCalldata 
+        callData: approveCalldata
     });
 
     // Encode the SmartPortfolio rebalance calldata
@@ -103,13 +104,13 @@ export const redeemDelegation = async (
 
     // Create execution for this transaction
     const rebalanceExecution = createExecution({ target: smartPortfolioAddress, callData: rebalanceCalldata });
-    
+
 
     const redeemApprovalCalldata = DelegationManager.encode.redeemDelegations({
-    delegations: [[signedDelegation]],
-    modes: [ExecutionMode.SingleDefault], 
-    executions: [[approvalExecution]],   
-});
+        delegations: [[signedDelegation]],
+        modes: [ExecutionMode.SingleDefault],
+        executions: [[approvalExecution]],
+    });
     // Encode redeemDelegations - both delegations and executions must be 2D arrays
     const redeemDelegationCalldata = DelegationManager.encode.redeemDelegations({
         delegations: [[signedDelegation]],       // Delegation[][]
@@ -131,7 +132,7 @@ export const redeemDelegation = async (
         };
     }
 
-    console.log("Sending user operation with gas params:", gasParams);
+    logger.info("Sending user operation with gas params", gasParams);
 
     // STEP 1: Send approval UserOperation
     const approvalOpHash = await bundlerClient.sendUserOperation({
@@ -142,17 +143,17 @@ export const redeemDelegation = async (
         paymaster: paymasterClient,
     });
 
-    console.log("Approval UserOperation sent:", approvalOpHash);
+    logger.info("Approval UserOperation sent", approvalOpHash);
 
     // Wait for approval confirmation
     const approvalReceipt = await bundlerClient.waitForUserOperationReceipt({ hash: approvalOpHash });
-    console.log("Approval receipt:", approvalReceipt);
-    
+    logger.info("Approval receipt", approvalReceipt);
+
     if (approvalReceipt.receipt.status !== "success") {
         throw new Error(`Approval transaction reverted: ${approvalReceipt.receipt.transactionHash}`);
     }
 
-    console.log("✅ Approval successful, now sending rebalance operation...");
+    logger.info("✅ Approval successful, now sending rebalance operation...");
 
     // Send UserOperation as delegate (Bob)
     const userOpHash = await bundlerClient.sendUserOperation({
@@ -163,11 +164,11 @@ export const redeemDelegation = async (
         paymaster: paymasterClient,
     });
 
-    console.log("UserOperation sent:", userOpHash);
+    logger.info("UserOperation sent", userOpHash);
 
     // Wait for confirmation
     const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
-    console.log("UserOperation receipt:", receipt);
+    logger.info("UserOperation receipt", receipt);
     if (receipt.status !== "success") throw new Error(`Transaction reverted: ${receipt.transactionHash}`);
 
     return {
@@ -197,13 +198,13 @@ export const autoDeploySmartAccount = async (
     paymasterClient?: any
 ): Promise<{ deployed: boolean; transactionHash?: string; alreadyDeployed?: boolean }> => {
 
-    console.log("Deploying smart account:", smartAccount.address);
+    logger.info("Deploying smart account", smartAccount.address);
 
     // Estimate gas with fallback
     let gasParams: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint };
     try {
         const pimlicoFee = await pimlicoClient.getUserOperationGasPrice();
-        console.log("Pimlico gas prices:", pimlicoFee);
+        logger.info("Pimlico gas prices", pimlicoFee);
         gasParams = pimlicoFee.fast;
     } catch {
         const gasEstimate = await publicClient.estimateFeesPerGas();
@@ -224,15 +225,17 @@ export const autoDeploySmartAccount = async (
                 data: "0x",
             },
         ],
-        // callGasLimit: 5000000n,
-        // verificationGasLimit: 3000000n,
-        // preVerificationGas: 300000n,
+        callGasLimit: 1000000n,        // Gas for the actual call execution
+        verificationGasLimit: 3000000n, // Gas for account verification/deployment
+        preVerificationGas: 300000n,   // Fixed gas for pre-verification
+        paymasterVerificationGasLimit: 500000n, // Gas for paymaster verification
+        paymasterPostOpGasLimit: 100000n,       // Gas for paymaster post-operation
         maxFeePerGas: gasParams.maxFeePerGas,
         maxPriorityFeePerGas: gasParams.maxPriorityFeePerGas,
         paymaster: paymasterClient,
     });
 
-    console.log("Deployment UserOperation sent:", userOpHash);
+    logger.info("Deployment UserOperation sent", userOpHash);
 
     // Wait for confirmation
     const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
@@ -241,8 +244,8 @@ export const autoDeploySmartAccount = async (
         throw new Error(`Deployment failed: ${receipt.transactionHash}`);
     }
 
-    console.log("Smart account deployed successfully:", smartAccount.address);
-    console.log("Transaction hash:", receipt.transactionHash);
+    logger.info("Smart account deployed successfully", smartAccount.address);
+    logger.info("Transaction hash", receipt.transactionHash);
 
     return {
         deployed: true,
@@ -266,10 +269,10 @@ export const getUserPortfolioAddress = async (smartAccountId: string): Promise<`
 
         // If not in database, try to get from factory contract
         // TODO: Implement factory lookup when needed
-        console.warn("Portfolio address not found in database for smartAccountId:", smartAccountId);
+        logger.warn("Portfolio address not found in database for smartAccountId", smartAccountId);
         return null;
     } catch (error) {
-        console.error("Error getting portfolio address:", error);
+        logger.error("Error getting portfolio address", error);
         return null;
     }
 };

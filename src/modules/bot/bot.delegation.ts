@@ -1,4 +1,4 @@
-import { monadTestnet } from "viem/chains";
+import { monadTestnet ,sepolia} from "viem/chains";
 import { http } from "viem";
 import { createPaymasterClient } from "viem/account-abstraction";
 import { createPimlicoClient } from "permissionless/clients/pimlico";
@@ -49,14 +49,14 @@ export async function redeemDelegationService(delegationID: string, reBalance: R
 
     const delegateSmartAccount = await reconstructSmartAccount(delegatePrivateKey);
     
-    const rpcUrl = process.env.PIMLICO_API_URL;
+    const rpcUrl = process.env.PIMLICO_API_URL_SEPOLIA;
     if (!rpcUrl) {
-        throw new Error("PIMLICO_API_URL environment variable is missing");
+        throw new Error("PIMLICO_API_URL_SEPOLIA environment variable is missing");
     }
     // Redeem the delegation using the bot's smart account and stored signed delegation
     let pimlicoClient;
     pimlicoClient = createPimlicoClient({
-        chain: monadTestnet,
+        chain: sepolia,
         transport: http(rpcUrl),
     });
     // Paymaster client

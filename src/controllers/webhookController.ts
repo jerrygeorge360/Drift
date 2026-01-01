@@ -5,6 +5,7 @@ import { rebalancePortfolio } from "../modules/rebalancer/rebalancer.rules.js";
 import { RedeemResult } from "../modules/delegation/types.js";
 import { redeemDelegationService } from "../modules/bot/bot.delegation.js";
 import { getDelegationBySmartAccountId } from "../utils/dbhelpers.js";
+import { logger } from "../utils/logger.js";
 
 
 /**
@@ -12,8 +13,7 @@ import { getDelegationBySmartAccountId } from "../utils/dbhelpers.js";
  */
 export const userAgentWebhook = async (req: Request, res: Response) => {
     const { botName, marketData } = req.body;
-    console.log(marketData);
-    console.log('reached marketdata')
+    logger.debug('marketData received', marketData);
 
 
     try {
@@ -30,7 +30,7 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
         // Save market data to DB (Cache for API and would be used for the snapshots for the ai agent)
         if (marketData) {
             try {
-                console.log('Saving market data to DB...');
+                logger.info('Saving market data to DB...');
                 const updates = Object.entries(marketData).map(([symbol, data]: [string, any]) => {
                     return db.tokenPrice.create({
                         data: {
@@ -44,15 +44,15 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
                     });
                 });
                 await Promise.all(updates);
-                console.log('Market data saved to DB');
+                logger.info('Market data saved to DB');
             } catch (dbError: any) {
-                console.error('Failed to save market data to DB:', dbError.message);
+                logger.error('Failed to save market data to DB', dbError);
                 // Don't fail the request, just log it
             }
         }
 
         // Step 1: Fetch all smart accounts with portfolios + allocations
-        console.log('Fetching smart accounts with portfolios...');
+        logger.info('Fetching smart accounts with portfolios...');
         const smartAccounts = await db.smartAccount.findMany({
             where: {
                 portfolio: {
@@ -90,7 +90,7 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
 
             const result = await rebalancePortfolio(input, prices, undefined, 0.05);
 
-            console.log(`Portfolio ${portfolio.id} decision:`, result.action);
+            logger.info(`Portfolio ${portfolio.id} decision: ${result.action}`);
 
             if (result.action === "REBALANCE") {
                 const smartAccountIdWithPortfolio = portfolio.smartAccountId;
@@ -106,10 +106,10 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
                 for (const params of result.params) {
                     try {
                         const txResult: RedeemResult = await redeemDelegationService(delegation.id, params);
-                        console.log(`Executed trade: ${params.tokenIn} → ${params.tokenOut}`, txResult);
+                        logger.info(`Executed trade: ${params.tokenIn} → ${params.tokenOut}`, txResult);
                         tradesExecuted++;
                     } catch (err: any) {
-                        console.error(`Failed to execute trade ${params.tokenIn} → ${params.tokenOut}:`, err.message);
+                        logger.error(`Failed to execute trade ${params.tokenIn} → ${params.tokenOut}`, err);
                         tradesFailed++;
                     }
                 }
@@ -126,7 +126,7 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
         });
 
     } catch (error: any) {
-        console.error("Webhook error:", error.message);
+        logger.error("Webhook error", error);
         return res.status(500).json({
             message: "Internal server error during rebalancing",
             error: error.message

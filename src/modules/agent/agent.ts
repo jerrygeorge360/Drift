@@ -1,30 +1,34 @@
 import Groq from "groq-sdk";
-import { toolRegistry } from "./router.js";
+import { snapshotTools } from "./tools.js";
+import { executeToolCall } from "./functions.js";
 import prisma from "../../config/db.js";
 import dotenv from "dotenv";
+import { logger } from "../../utils/logger.js";
+
 dotenv.config();
+
 if (!process.env.GROQ_API_KEY) {
     throw new Error("GROQ_API_KEY is missing from environment variables.");
 }
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-interface AgentMessage {
+interface ToolCall {
+    id: string;
+    type: "function";
+    function: {
+        name: string;
+        arguments: string;
+    };
+}
+
+interface ChatMessage {
     role: "system" | "user" | "assistant" | "tool";
-    content: string;
+    content: string | null;
+    tool_calls?: ToolCall[];
+    tool_call_id?: string;
     name?: string;
 }
-
-interface ToolCall {
-    tool: string;
-    arguments: Record<string, any>;
-}
-
-interface FinalResponse {
-    final_response: string;
-}
-
-type AgentResponse = ToolCall | FinalResponse;
 
 export class SnapshotAgent {
     private model: string;
@@ -39,26 +43,9 @@ Primary objective:
 3. Use any provided 'Historical Context' (memories) to identify long-term patterns or recurring behaviors.
 4. Save the full analysis using 'saveAnalysis'.
 5. Produce a short memory summary (including the price data as text and an abridged analysis) and save it using 'saveMemorySummary'.
-6. When both 'saveAnalysis' and 'saveMemorySummary' have been successfully called, return a final JSON response summarizing your work.
+6. When both 'saveAnalysis' and 'saveMemorySummary' have been successfully called, provide a final summary of your work.
 
-ALLOWED FORMATS:
-
-For tool calls:
-{
-  "tool": "<toolName>",
-  "arguments": { ... }
-}
-
-For final output:
-{
-  "final_response": "<text>"
-}
-
-STRICT RULES:
-- Always use valid JSON.
-- Do not include any text outside the JSON block.
-- Call tools one at a time.
-- Wait for the tool result before proceeding to the next step.
+Use the available tools to complete these tasks systematically.
 `;
 
     constructor(model: string = "llama-3.3-70b-versatile") {
@@ -66,7 +53,31 @@ STRICT RULES:
     }
 
     async run(): Promise<string> {
-        console.log(`[SnapshotAgent] Starting analysis run using model: ${this.model}`);
+        logger.info(`Starting analysis run using model: ${this.model}`);
+
+        // Check for data freshness
+        const latestPrice = await prisma.tokenPrice.findFirst({
+            orderBy: { lastUpdatedAt: "desc" }
+        });
+
+        const latestAnalysis = await prisma.analysis.findFirst({
+            orderBy: { createdAt: "desc" }
+        });
+
+        if (latestPrice && latestAnalysis) {
+            // If the latest price update is NOT newer than our last analysis, skip.
+            if (latestPrice.lastUpdatedAt <= latestAnalysis.createdAt) {
+                const msg = "No new data since last analysis. Skipping run.";
+                logger.info(msg);
+                return msg;
+            }
+        }
+
+        if (!latestPrice) {
+            const msg = "No price data found in database. Skipping run.";
+            logger.warn(msg);
+            return msg;
+        }
 
         // Fetch historical context (memories)
         const memories = await prisma.memory.findMany({
@@ -78,7 +89,7 @@ STRICT RULES:
             ? `Historical Context (Latest Memories):\n${memories.map(m => `- ${m.createdAt.toISOString()}: ${m.summary}`).join('\n')}`
             : "No historical context available.";
 
-        const messages: AgentMessage[] = [
+        const messages: ChatMessage[] = [
             { role: "system", content: this.systemPrompt },
             { role: "system", content: memoryContext },
             { role: "user", content: "Begin snapshot analysis now." }
@@ -87,84 +98,89 @@ STRICT RULES:
         return await this.executionLoop(messages);
     }
 
-
-    private async executionLoop(messages: AgentMessage[]): Promise<string> {
+    private async executionLoop(messages: ChatMessage[]): Promise<string> {
         let iterations = 0;
 
         while (iterations < this.maxIterations) {
             iterations++;
-            console.log(`[SnapshotAgent] Iteration ${iterations}...`);
+            logger.info(`Iteration ${iterations}...`);
 
             try {
-                const completion = await groq.chat.completions.create({
+                // 1. Call model with tool schema
+                const response = await groq.chat.completions.create({
                     model: this.model,
                     messages: messages as any,
+                    tools: snapshotTools,
                     temperature: 0.2,
-                    max_tokens: 1000,
+                    max_tokens: 2000,
                 });
 
-                const raw = completion.choices?.[0]?.message?.content?.trim();
-                if (!raw) throw new Error("Empty LLM response");
+                const message = response.choices[0]?.message;
+                if (!message) {
+                    throw new Error("Empty LLM response");
+                }
 
-                console.log(`[SnapshotAgent] LLM Response: ${raw}`);
+                logger.debug("LLM Response", message);
 
-                let parsed: AgentResponse;
-                try {
-                    parsed = JSON.parse(raw);
-                } catch (e) {
-                    console.warn(`[SnapshotAgent] Failed to parse JSON, attempting to extract...`);
-                    const match = raw.match(/\{[\s\S]*\}/);
-                    if (match) {
-                        parsed = JSON.parse(match[0]);
-                    } else {
-                        throw new Error("LLM returned invalid JSON: " + raw);
+                // Add assistant message to conversation
+                messages.push({
+                    role: "assistant",
+                    content: message.content,
+                    tool_calls: message.tool_calls as ToolCall[] | undefined
+                });
+
+                // 2. Check for tool calls
+                if (message.tool_calls && message.tool_calls.length > 0) {
+                    logger.info(`Processing ${message.tool_calls.length} tool call(s)...`);
+
+                    // 3. Execute each tool call
+                    for (const toolCall of message.tool_calls) {
+                        try {
+                            logger.info(`Calling tool: ${toolCall.function.name}`, { arguments: toolCall.function.arguments });
+
+                            // Use the imported executeToolCall function
+                            const functionResponse = await executeToolCall(toolCall as ToolCall);
+
+                            logger.info(`Tool result received for ${toolCall.function.name}`);
+
+                            // Add tool result to messages
+                            messages.push({
+                                role: "tool",
+                                tool_call_id: toolCall.id,
+                                name: toolCall.function.name,
+                                content: functionResponse
+                            });
+                        } catch (error: any) {
+                            logger.error(`Error executing tool ${toolCall.function.name}`, error);
+
+                            // Add error result to messages
+                            messages.push({
+                                role: "tool",
+                                tool_call_id: toolCall.id,
+                                name: toolCall.function.name,
+                                content: JSON.stringify({ error: error.message })
+                            });
+                        }
                     }
-                }
 
-                // Handle Final Response
-                if ("final_response" in parsed) {
-                    console.log(`[SnapshotAgent] Final response received.`);
-                    return parsed.final_response;
-                }
-
-                // Handle Tool Call
-                if ("tool" in parsed) {
-                    const toolName = parsed.tool;
-                    const args = parsed.arguments || {};
-
-                    console.log(`[SnapshotAgent] Calling tool: ${toolName} with args:`, args);
-
-                    const tool = (toolRegistry as any)[toolName];
-                    if (!tool) throw new Error(`Unknown tool: ${toolName}`);
-
-                    const toolResult = await tool.execute(args);
-                    console.log(`[SnapshotAgent] Tool result received.`);
-
-                    messages.push({
-                        role: "assistant",
-                        content: raw
-                    });
-
-                    messages.push({
-                        role: "tool",
-                        name: toolName,
-                        content: JSON.stringify({
-                            tool: toolName,
-                            result: toolResult
-                        })
-                    });
-
+                    // Continue loop to get next response from model
                     continue;
                 }
 
-                throw new Error("LLM response missing 'final_response' or 'tool' call.");
+                // 4. No tool calls, we have a final response
+                if (message.content) {
+                    logger.info("Final response received.");
+                    return message.content;
+                }
+
+                throw new Error("LLM response has no content and no tool calls");
 
             } catch (error: any) {
-                console.error(`[SnapshotAgent] Error in execution loop:`, error.message);
+                logger.error("Error in execution loop", error);
                 throw error;
             }
         }
 
-        throw new Error(`[SnapshotAgent] Reached maximum iterations (${this.maxIterations}) without a final response.`);
+        throw new Error(`Reached maximum iterations (${this.maxIterations}) without a final response.`);
     }
 }

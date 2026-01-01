@@ -12,12 +12,10 @@ import {
     findSmartAccountById,
     getUserSmartAccounts
 } from "../utils/dbhelpers.js"
-import { monadTestnet } from "viem/chains";
-import { 
-    initializeWithValidation, 
-    getMonadTestnetEnvironment,
-    MONAD_TESTNET_CHAIN_ID 
-} from "../config/metamask_monadtestnet_config.js";
+import { sepolia } from "viem/chains";
+import { logger } from "../utils/logger.js";
+// import { monadTestnet } from "viem/chains";
+
 
 
 
@@ -28,18 +26,18 @@ export interface AuthRequest extends Request {
 
 export const createSmartAccount = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        console.log("Create Smart Account request body:", req.body);
+        logger.debug("Create Smart Account request body", req.body);
         if (!req.user?.address || !req.user?.id) {
             return res.status(401).json({ message: "Unauthorized: User info missing" });
         }
 
         // Initialize MetaMask environment for Monad testnet
         try {
-            initializeWithValidation();
-            console.log("✅ MetaMask environment initialized for smart account creation");
+            // initializeWithValidation();
+            logger.info("✅ MetaMask environment initialized for smart account creation");
         } catch (envError) {
-            console.error("❌ Failed to initialize MetaMask environment:", envError);
-            return res.status(500).json({ 
+            logger.error("❌ Failed to initialize MetaMask environment", envError);
+            return res.status(500).json({
                 message: "Failed to initialize MetaMask environment",
                 error: envError instanceof Error ? envError.message : String(envError)
             });
@@ -47,18 +45,12 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
 
         const walletAddress = req.user.address;
         const userId = req.user.id;
-        const autoDeploy = req.body.autoDeploy === true; // Optional: auto-deploy on creation
+        let autoDeploy = req.body.autoDeploy; // Optional: auto-deploy on creation
 
         const privateKey = generatePrivateKey();
         const account = privateKeyToAccount(privateKey);
         const encrypted = encryptPrivateKey(privateKey);
 
-        // Get the Monad testnet environment to ensure we're using the correct contracts
-        const monadEnvironment = getMonadTestnetEnvironment();
-        
-        console.log("Creating smart account with Monad testnet environment...");
-        console.log("Using Hybrid implementation address:", monadEnvironment.implementations.Hybrid);
-        console.log("Using SimpleFactory address:", monadEnvironment.SimpleFactory);
 
         const smartAccount = await toMetaMaskSmartAccount({
             client: publicClient,
@@ -72,16 +64,33 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
 
         const createdSmartAccount = await createSmartAccountdb(userId, smartAccount.address, encrypted, walletAddress, ownerAddress);
 
+        // Sync or deploy portfolio automatically
+        let portfolioResult = null;
+        try {
+            const { syncOrDeployPortfolio } = await import("../modules/portfolio/portfolio.service.js");
+            portfolioResult = await syncOrDeployPortfolio(
+                createdSmartAccount.id,
+                req.body.portfolioName || "Default Portfolio",
+                "sepolia", // Default to sepolia for now
+                autoDeploy
+            );
+            logger.info("Portfolio sync/deploy result", portfolioResult);
+        } catch (portfolioError) {
+            logger.error("Failed to sync/deploy portfolio during smart account creation", portfolioError);
+            // Don't fail the entire request, just log the error
+        }
+
         // Auto-deploy if requested
         let deploymentResult = null;
+        // autoDeploy = false;
         if (autoDeploy) {
             try {
-                const rpcUrl = process.env.PIMLICO_API_URL;
+                const rpcUrl = process.env.PIMLICO_API_URL_SEPOLIA;
                 if (!rpcUrl) {
                     return res.status(500).json({ message: "RPC URL not configured" });
                 }
 
-                const pimlicoUrl = process.env.PIMLICO_API_URL;
+                const pimlicoUrl = process.env.PIMLICO_API_URL_SEPOLIA;
                 if (!pimlicoUrl) {
                     return res.status(500).json({ message: "Pimlico URL not configured" });
                 }
@@ -93,7 +102,7 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
 
                 // Get clients for deployment
                 const { publicClient, bundlerClient, pimlicoClient, paymasterClient } = await setupAccountAbstractionClients({
-                    chain: monadTestnet,
+                    chain: sepolia,
                     rpcUrl,
                     pimlicoUrl,
                 });
@@ -106,7 +115,7 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
                     paymasterClient
                 );
 
-                console.log("Auto-deployment result:", deploymentResult);
+                logger.info("Auto-deployment result", deploymentResult);
 
                 // Update database with deployment status
                 if (deploymentResult.deployed && deploymentResult.transactionHash) {
@@ -114,10 +123,10 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
                         createdSmartAccount.id,
                         deploymentResult.transactionHash
                     );
-                    console.log("Deployment status saved to database");
+                    logger.info("Deployment status saved to database");
                 }
             } catch (deployError: any) {
-                console.error("Auto-deployment failed:", deployError);
+                logger.error("Auto-deployment failed", deployError);
                 // Don't fail the entire request, just log the error
                 deploymentResult = { error: deployError.message };
             }
@@ -127,16 +136,10 @@ export const createSmartAccount = async (req: AuthRequest, res: Response, next: 
             message: "Smart account created successfully",
             account: {
                 ...createdSmartAccount,
-                environmentConfigured: true,
-                chainId: MONAD_TESTNET_CHAIN_ID,
-                contractAddresses: {
-                    simpleFactory: monadEnvironment.SimpleFactory,
-                    delegationManager: monadEnvironment.DelegationManager,
-                    hybridImplementation: monadEnvironment.implementations.Hybrid,
-                    entryPoint: monadEnvironment.EntryPoint,
-                },
+                portfolio: portfolioResult?.portfolio,
             },
             deployment: deploymentResult,
+            portfolioDeployment: portfolioResult?.deployment,
         });
 
     } catch (err) {
@@ -218,3 +221,30 @@ export const getSmartAccountById = async (req: AuthRequest, res: Response, next:
         next(error);
     }
 };
+
+export const getSupportedChains = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const supportedChains = [
+            {
+                id: "monad",
+                name: "Monad Testnet",
+                chainId: 10143
+            },
+            {
+                id: "sepolia",
+                name: "Sepolia Testnet",
+                chainId: 11155111
+            }
+        ];
+
+        return res.status(200).json({
+            supportedChains,
+            defaultChain: "monad"
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// TODO : Add sepolia chain support
+// TODO : Deploy the necessary contracts on sepolia.

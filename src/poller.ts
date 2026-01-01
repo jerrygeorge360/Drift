@@ -1,17 +1,18 @@
 import dotenv from "dotenv";
 import { startPricePolling, stopPricePolling } from "./utils/oracle.service.js";
+import { logger } from "./utils/logger.js";
 
 // Load environment variables
 dotenv.config();
 
-console.log("Starting Oracle Poller Service...");
+logger.info("Starting Oracle Poller Service...");
 
 // Start the polling service
 startPricePolling();
 
 // Handle graceful shutdown
 const handleShutdown = (signal: string) => {
-    console.log(`\n[${signal}] Shutting down Oracle Poller Service...`);
+    logger.info(`\n[${signal}] Shutting down Oracle Poller Service...`);
     stopPricePolling();
     process.exit(0);
 };

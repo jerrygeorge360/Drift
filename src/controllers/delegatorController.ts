@@ -21,6 +21,7 @@ import { decryptPrivateKey } from "../utils/encryption.js";
 import { redeemDelegationService } from "../modules/bot/bot.delegation.js";
 import { RebalanceParams } from "../modules/bot/bot.types.js";
 import { RedeemResult } from "../modules/delegation/types.js";
+import { logger } from "../utils/logger.js";
 
 export interface AuthRequest extends Request {
     user?: { id: string; address: string };
@@ -65,12 +66,12 @@ export const createDelegationController = async (req: AuthRequest, res: Response
 
         const delegatorSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatorPrivateKey)
         const delegateSmartAccount: MetaMaskSmartAccount = await reconstructSmartAccount(delegatePrivateKey)
-        
+
         // Get user's portfolio address (individual portfolio from factory)
         const userPortfolioAddress = await getPortfolioAddressBySmartAccountId(smartAccountId);
         if (!userPortfolioAddress) {
-            return res.status(404).json({ 
-                message: "User portfolio not found. Please create and deploy a portfolio first." 
+            return res.status(404).json({
+                message: "User portfolio not found. Please create and deploy a portfolio first."
             });
         }
         // Create and sign the delegation
@@ -105,7 +106,7 @@ export const createDelegationController = async (req: AuthRequest, res: Response
             },
         });
     } catch (error: any) {
-        console.error("Error creating delegation:", error);
+        logger.error("Error creating delegation", error);
         return res.status(500).json({
             message: "Failed to create delegation",
             error: error.message || error,
@@ -151,15 +152,15 @@ export const redeemDelegationController = async (req: Request, res: Response): P
                         status: txResult.status,
                         gasUsed: txResult.gasUsed,
                     });
-                    console.log("Rebalance log saved to database");
+                    logger.info("Rebalance log saved to database");
                 } else {
-                    console.warn("Could not find tokens in database, skipping log save");
+                    logger.warn("Could not find tokens in database, skipping log save");
                 }
             } else {
-                console.warn("Portfolio not found, skipping log save");
+                logger.warn("Portfolio not found, skipping log save");
             }
         } catch (dbError) {
-            console.error("Failed to save rebalance log to database:", dbError);
+            logger.error("Failed to save rebalance log to database", dbError);
             // Don't fail the entire request if DB save fails
         }
 
@@ -169,7 +170,7 @@ export const redeemDelegationController = async (req: Request, res: Response): P
             data: txResult,
         });
     } catch (error: any) {
-        console.error("❌ Redeem Delegation Error:", error);
+        logger.error("Redeem Delegation Error", error);
         return res.status(500).json({
             success: false,
             message: "Failed to execute redeem delegation",
@@ -241,7 +242,7 @@ export const revokeDelegationController = async (req: AuthRequest, res: Response
         });
 
     } catch (error: any) {
-        console.error("Error revoking delegation:", error);
+        logger.error("Error revoking delegation", error);
         // @ts-ignore
         return res.status(500).json({
             message: "Failed to revoke delegation",

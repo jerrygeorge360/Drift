@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyHmacSignature } from "../utils/webhook.security.js";
+import { logger } from "../utils/logger.js";
 
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "default_secret";
 
@@ -19,7 +20,7 @@ export const verifyWebhookAuth = (req: Request, res: Response, next: NextFunctio
 
         next();
     } catch (error) {
-        console.error("Webhook auth verification failed:", error);
+        logger.error("Webhook auth verification failed", error);
         res.status(500).json({ message: "Internal auth error" });
     }
 };

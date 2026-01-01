@@ -1,12 +1,13 @@
 import { Request, Response } from 'express';
 import { analysisEmitter } from '../modules/sse/sseEmitter.js';
+import { logger } from '../utils/logger.js';
 
 export const sseAnalysisHandler = (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    console.log('[SSE] Client connected');
+    logger.info('[SSE] Client connected');
 
     const onNewAnalysis = (data: any) => {
         res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -15,7 +16,7 @@ export const sseAnalysisHandler = (req: Request, res: Response) => {
     analysisEmitter.on('new_analysis', onNewAnalysis);
 
     req.on('close', () => {
-        console.log('[SSE] Client disconnected');
+        logger.info('[SSE] Client disconnected');
         analysisEmitter.off('new_analysis', onNewAnalysis);
     });
 };

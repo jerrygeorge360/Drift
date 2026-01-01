@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../config/db.js";
+import { logger } from "../utils/logger.js";
 
 export interface AuthRequest extends Request {
     user?: { id: string; address: string; role: string };
@@ -35,7 +36,7 @@ const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunctio
 
         next();
     } catch (error) {
-        console.error("Auth middleware error:", error);
+        logger.error("Auth middleware error", error);
         return res.status(401).json({ message: "Invalid or expired token" });
     }
 

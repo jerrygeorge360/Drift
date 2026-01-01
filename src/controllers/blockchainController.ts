@@ -8,6 +8,7 @@ import {
     getOwner
 } from "../utils/blockchainhelpers.js";
 import { getContractAddressByName } from "../utils/dbhelpers.js";
+import { logger } from "../utils/logger.js";
 
 
 
@@ -47,7 +48,7 @@ export const getUserAllocation = async (req: Request, res: Response) => {
             }
         });
     } catch (error: any) {
-        console.error("Error fetching allocation:", error);
+        logger.error("Error fetching allocation", error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -87,7 +88,7 @@ export const checkHasAllocation = async (req: Request, res: Response) => {
             }
         });
     } catch (error: any) {
-        console.error("Error checking allocation:", error);
+        logger.error("Error checking allocation", error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -123,11 +124,11 @@ export const estimateSwap = async (req: Request, res: Response) => {
         res.json({
             success: true,
             data: {
-               estimates
+                estimates
             }
         });
     } catch (error: any) {
-        console.error("Error estimating swap:", error);
+        logger.error("Error estimating swap", error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -161,7 +162,7 @@ export const getContractStatus = async (req: Request, res: Response) => {
             }
         });
     } catch (error: any) {
-        console.error("Error fetching contract status:", error);
+        logger.error("Error fetching contract status", error);
         res.status(500).json({
             success: false,
             error: error.message

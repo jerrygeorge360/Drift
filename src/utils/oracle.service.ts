@@ -3,6 +3,7 @@
 import { getAllTokens } from "./dbhelpers.js";
 import { generateHmacSignature } from "./webhook.security.js";
 import db from "../config/db.js";
+import { logger } from "./logger.js";
 
 // Types
 interface TokenPrices {
@@ -36,7 +37,7 @@ type StopPollingFunction = () => void;
 
 // Configuration
 const API_KEY = process.env.COIN_GECKO_API_KEY;
-console.log(API_KEY);
+logger.debug("CoinGecko API Key present", !!API_KEY);
 if (!API_KEY) {
     throw new Error('Please add coin gecko api key to .env');
 }
@@ -71,10 +72,10 @@ let tokenIntervalId: NodeJS.Timeout | null = null;
  * @param {string[]} tokenIds - Array of token IDs to fetch
  * @returns {Promise<TokenPrices | null>} - Price data
  */
-async function fetchPrices(tokenIds: readonly string[]): Promise<TokenPrices | null> {
+async function fetchPrices(tokenIds: string[]): Promise<TokenPrices | null> {
     const ids = tokenIds.join(',');
     const url = `${BASE_URL}?ids=${ids}&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true&include_last_updated_at=true&precision=2`;
-
+    logger.debug("CoinGecko URL", url);
     // Create AbortController for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
@@ -94,10 +95,10 @@ async function fetchPrices(tokenIds: readonly string[]): Promise<TokenPrices | n
         if (!response.ok) {
             // Handle rate limiting
             if (response.status === 429) {
-                console.error(`[${new Date().toISOString()}] ⚠ Rate limit exceeded (429)`);
+                logger.warn(`Rate limit exceeded (429)`);
                 const retryAfter = response.headers.get('Retry-After');
                 if (retryAfter) {
-                    console.log(`Retry after ${retryAfter} seconds`);
+                    logger.info(`Retry after ${retryAfter} seconds`);
                 }
             }
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -115,7 +116,7 @@ async function fetchPrices(tokenIds: readonly string[]): Promise<TokenPrices | n
 
         if (error instanceof Error) {
             if (error.name === 'AbortError') {
-                console.error(`[${new Date().toISOString()}] ✗ Request timeout after ${FETCH_TIMEOUT}ms`);
+                logger.error(`Request timeout after ${FETCH_TIMEOUT}ms`);
                 throw new Error(`Request timeout after ${FETCH_TIMEOUT}ms`);
             }
 
@@ -123,21 +124,21 @@ async function fetchPrices(tokenIds: readonly string[]): Promise<TokenPrices | n
             if ('cause' in error && error.cause) {
                 const cause = error.cause as any;
                 if (cause.code === 'ETIMEDOUT') {
-                    console.error(`[${new Date().toISOString()}] ✗ Network connection timeout`);
+                    logger.error(`Network connection timeout`);
                     throw new Error('Network connection timeout - please check your internet connection');
                 }
                 if (cause.code === 'ECONNREFUSED') {
-                    console.error(`[${new Date().toISOString()}] ✗ Connection refused`);
+                    logger.error(`Connection refused`);
                     throw new Error('Connection refused - API may be down');
                 }
                 if (cause.code === 'ENOTFOUND') {
-                    console.error(`[${new Date().toISOString()}] ✗ DNS lookup failed`);
+                    logger.error(`DNS lookup failed`);
                     throw new Error('DNS lookup failed - check your network/DNS settings');
                 }
             }
         }
 
-        console.error('Error fetching prices:', error);
+        logger.error('Error fetching prices', error);
         throw error;
     }
 }
@@ -145,7 +146,7 @@ async function fetchPrices(tokenIds: readonly string[]): Promise<TokenPrices | n
 /**
  * Fetch with exponential backoff retry logic
  */
-async function fetchWithRetry(tokenIds: readonly string[]): Promise<TokenPrices | null> {
+async function fetchWithRetry(tokenIds: string[]): Promise<TokenPrices | null> {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
@@ -154,7 +155,7 @@ async function fetchWithRetry(tokenIds: readonly string[]): Promise<TokenPrices 
 
             // Reset failure counter on success
             if (pollingState.consecutiveFailures > 0) {
-                console.log(`[${new Date().toISOString()}] ✓ Recovered after ${pollingState.consecutiveFailures} consecutive failures`);
+                logger.info(`Recovered after ${pollingState.consecutiveFailures} consecutive failures`);
                 pollingState.consecutiveFailures = 0;
             }
 
@@ -166,21 +167,21 @@ async function fetchWithRetry(tokenIds: readonly string[]): Promise<TokenPrices 
             if (isLastAttempt) break;
 
             const delay = Math.min(INITIAL_RETRY_DELAY * Math.pow(2, attempt), 10000);
-            console.log(`[${new Date().toISOString()}] ⚠ Attempt ${attempt + 1}/${MAX_RETRIES} failed: ${lastError.message}`);
-            console.log(`[${new Date().toISOString()}] Retrying in ${delay}ms...`);
+            logger.warn(`Attempt ${attempt + 1}/${MAX_RETRIES} failed: ${lastError.message}`);
+            logger.info(`Retrying in ${delay}ms...`);
 
             await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
 
     pollingState.consecutiveFailures++;
-    console.error(`[${new Date().toISOString()}] ✗ All ${MAX_RETRIES} attempts failed: ${lastError?.message}`);
-    console.error(`[${new Date().toISOString()}] Consecutive failures: ${pollingState.consecutiveFailures}`);
+    logger.error(`All ${MAX_RETRIES} attempts failed`, lastError);
+    logger.error(`Consecutive failures: ${pollingState.consecutiveFailures}`);
 
     // Auto-stop if too many consecutive failures
     if (pollingState.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-        console.error(`[${new Date().toISOString()}] ⚠ CRITICAL: Stopping polling after ${pollingState.consecutiveFailures} consecutive failures`);
-        console.error(`[${new Date().toISOString()}] Please check your network connection and CoinGecko API status`);
+        logger.error(`CRITICAL: Stopping polling after ${pollingState.consecutiveFailures} consecutive failures`);
+        logger.error(`Please check your network connection and CoinGecko API status`);
         stopPricePolling();
     }
 
@@ -201,19 +202,36 @@ function resetDailyCounterIfNeeded(): void {
 
 // Unified polling function
 async function pollAllPrices(): Promise<TokenPrices | null> {
-    console.log(`[${new Date().toISOString()}] Fetching all token prices...`);
+    logger.info(`Fetching all token prices...`);
 
     try {
-        const ALL_TOKENS = (await getAllTokens()).reduce((acc, token) => {
-            acc[token.id] = token.symbol;
-            return acc;
-        }, {} as { [id: string]: string });
+        const tokens = await getAllTokens();
 
-        // Fetch all prices with retry
-        const prices = await fetchWithRetry(Object.keys(ALL_TOKENS));
+        // Map of Symbol -> CoinGecko ID
+        const SYMBOL_TO_CG_ID: Record<string, string> = {
+            'WBTC': 'wrapped-bitcoin',
+            'USDT': 'tether',
+            'USDC': 'usd-coin',
+            'DAI': 'dai',
+            'WETH': 'ethereum',
+            'WSOL': 'solana'
+        };
+
+        // Create a mapping of CoinGecko ID back to our database token info
+        const cgIdToTokenInfo: Record<string, { id: string, symbol: string }> = {};
+        const coingeckoIds: string[] = [];
+
+        tokens.forEach(token => {
+            const cgId = SYMBOL_TO_CG_ID[token.symbol.toUpperCase()] || token.symbol.toLowerCase();
+            cgIdToTokenInfo[cgId] = { id: token.id, symbol: token.symbol };
+            coingeckoIds.push(cgId);
+        });
+
+        // Fetch all prices with retry using CoinGecko IDs
+        const prices = await fetchWithRetry(coingeckoIds);
 
         if (!prices) {
-            console.warn('No prices fetched');
+            logger.warn('No prices fetched');
             return null;
         }
 
@@ -222,48 +240,57 @@ async function pollAllPrices(): Promise<TokenPrices | null> {
         pollingState.lastVolatileUpdate = now;
         pollingState.lastStableUpdate = now;
 
-
-        // Map the fetched data into TokenPrices interface format
+        // Map the fetched data into TokenPrices interface format using our DB IDs
         const structuredPrices: TokenPrices = {};
-        for (const tokenId of Object.keys(prices)) {
-            const data = prices[tokenId];
-            structuredPrices[tokenId] = {
+        const loggedPrices: Record<string, number | null> = {};
+
+        for (const cgId of Object.keys(prices)) {
+            const tokenInfo = cgIdToTokenInfo[cgId];
+            if (!tokenInfo) continue;
+
+            const data = prices[cgId];
+            structuredPrices[tokenInfo.id] = {
                 usd: data.usd ?? 0,
                 usd_market_cap: data.usd_market_cap,
                 usd_24h_vol: data.usd_24h_vol,
                 usd_24h_change: data.usd_24h_change,
                 last_updated_at: Math.floor(now.getTime() / 1000)
             };
+            loggedPrices[tokenInfo.symbol] = data.usd ?? null;
         }
-        const loggedPrices: Record<string, number | null> = {};
-        for (const tokenId in ALL_TOKENS) {
-            const tokenSymbol = ALL_TOKENS[tokenId];
-            loggedPrices[tokenSymbol] = structuredPrices[tokenId]?.usd ?? null;
-        }
-        console.log(`[${new Date().toISOString()}] ✓ All tokens updated`, loggedPrices);
-        const webhookUrl = `${process.env.DOMAIN_URL}/api/webhook`;
+
+        // Log the prices we found
+        logger.info(`All tokens updated`, loggedPrices);
+
+        // Webhook notification
+        const domainUrl = process.env.DOMAIN_URL || 'http://localhost:4000';
+        const webhookUrl = `${domainUrl}/api/webhook`;
         const payload = JSON.stringify({ botName: 'Drift', marketData: structuredPrices });
         const signature = generateHmacSignature(process.env.WEBHOOK_SECRET || "default_secret", payload);
 
-        const response = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-webhook-signature': signature
-            },
-            body: payload
-        });
+        try {
+            const response = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-webhook-signature': signature
+                },
+                body: payload
+            });
 
-        if (!response.ok) {
-            console.error(`Webhook call failed: ${response.status} ${response.statusText}`);
-        } else {
-            console.log(`Webhook called successfully at ${webhookUrl}`);
+            if (!response.ok) {
+                logger.error(`Webhook call failed: ${response.status} ${response.statusText}`);
+            } else {
+                logger.info(`Webhook called successfully at ${webhookUrl}`);
+            }
+        } catch (webhookError: any) {
+            logger.warn(`Webhook call failed (is the server running?): ${webhookError.message}`);
         }
 
         return structuredPrices;
 
     } catch (error: any) {
-        console.error(`[${new Date().toISOString()}] ❌ Failed to poll prices:`, error.message);
+        logger.error(`Failed to poll prices`, error);
         return null;
     }
 }
@@ -280,11 +307,11 @@ export async function triggerWebhook(webhookUrl: string, botName: string): Promi
         const marketData = await getStoredMarketData();
 
         if (Object.keys(marketData).length === 0) {
-            console.log('No market data available, skipping webhook call');
+            logger.info('No market data available, skipping webhook call');
             return;
         }
 
-        console.log(`Calling webhook: ${webhookUrl}`);
+        logger.info(`Calling webhook: ${webhookUrl}`);
 
         const payload = JSON.stringify({
             botName,
@@ -306,10 +333,10 @@ export async function triggerWebhook(webhookUrl: string, botName: string): Promi
         }
 
         const result = await response.json();
-        console.log(` Webhook call successful: ${result.message || 'OK'}`);
+        logger.info(`Webhook call successful: ${result.message || 'OK'}`);
 
     } catch (error: any) {
-        console.error(` Webhook call failed:`, error.message);
+        logger.error(`Webhook call failed`, error);
         throw error;
     }
 }
@@ -339,7 +366,7 @@ export async function getStoredMarketData() {
         }
         return marketData;
     } catch (error) {
-        console.error('Failed to fetch stored market data:', error);
+        logger.error('Failed to fetch stored market data', error);
         return {};
     }
 }
@@ -364,13 +391,13 @@ export async function getStoredCurrentPrices(): Promise<CurrentPrices> {
  */
 export function startPricePolling(): StopPollingFunction {
     if (pollingState.isRunning) {
-        console.log('Price polling service is already running');
+        logger.info('Price polling service is already running');
         return stopPricePolling;
     }
 
 
-    console.log(`- Timeout: ${FETCH_TIMEOUT / 1000}s per request`);
-    console.log(`- Retries: ${MAX_RETRIES} attempts with exponential backoff`);
+    logger.info(`- Timeout: ${FETCH_TIMEOUT / 1000}s per request`);
+    logger.info(`- Retries: ${MAX_RETRIES} attempts with exponential backoff`);
 
     // Reset failure counter on manual start
     pollingState.consecutiveFailures = 0;
@@ -388,11 +415,11 @@ export function startPricePolling(): StopPollingFunction {
 // Stop the price polling service
 export function stopPricePolling(): void {
     if (!pollingState.isRunning) {
-        console.log('Price polling service is not running');
+        logger.info('Price polling service is not running');
         return;
     }
 
-    console.log('Stopping price polling service...');
+    logger.info('Stopping price polling service...');
 
 
     if (tokenIntervalId) {
@@ -400,12 +427,12 @@ export function stopPricePolling(): void {
         tokenIntervalId = null;
     }
     pollingState.isRunning = false;
-    console.log('Price polling service stopped');
+    logger.info('Price polling service stopped');
 }
 
 // Restart the price polling service
 export function restartPricePolling(): void {
-    console.log('Restarting price polling service...');
+    logger.info('Restarting price polling service...');
     stopPricePolling();
 
     // Small delay before restarting
@@ -450,14 +477,14 @@ export function updateIntervals(allSeconds?: number): void {
         }
         TOKEN_INTERVAL = allSeconds * 1000;
     }
-    console.log('Intervals updated:', {
+    logger.info('Intervals updated', {
         tokenInterval: TOKEN_INTERVAL / 1000,
     });
 }
 
 // Force an immediate price update for all tokens
 export async function forceUpdate(): Promise<CurrentPrices> {
-    console.log('Forcing immediate price update...');
+    logger.info('Forcing immediate price update...');
 
     await Promise.all([
         pollAllPrices()
@@ -471,20 +498,21 @@ export function calculateMonthlyCalls(): void {
     const minutesPerMonth = 43200; // 30 days
     const totalCalls = minutesPerMonth / (TOKEN_INTERVAL / 60000)
 
-    console.log('\nEstimated Monthly API Usage:');
-    console.log(`- Total: ~${Math.ceil(totalCalls)} calls/month`);
-    console.log(`- Remaining buffer: ~${50000 - Math.ceil(totalCalls)} calls\n`);
+    logger.info('Estimated Monthly API Usage', {
+        totalCalls: Math.ceil(totalCalls),
+        remainingBuffer: 50000 - Math.ceil(totalCalls)
+    });
 }
 
 // Graceful shutdown handlers
 process.on('SIGINT', () => {
-    console.log('\n[SIGINT] Received interrupt signal, shutting down gracefully...');
+    logger.info('[SIGINT] Received interrupt signal, shutting down gracefully...');
     stopPricePolling();
     process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-    console.log('\n[SIGTERM] Received termination signal, shutting down gracefully...');
+    logger.info('[SIGTERM] Received termination signal, shutting down gracefully...');
     stopPricePolling();
     process.exit(0);
 });

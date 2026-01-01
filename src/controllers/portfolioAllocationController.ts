@@ -1,4 +1,4 @@
-import {Request, Response} from 'express';
+import { Request, Response } from 'express';
 
 // ✅ GET /api/allocations/:portfolioId
 import {
@@ -8,8 +8,9 @@ import {
     setPortfolioAllocations
 } from "../utils/dbhelpers.js";
 import prisma from "../config/db.js";
+import { logger } from "../utils/logger.js";
 
-export async function getAllocations(req:Request, res:Response) {
+export async function getAllocations(req: Request, res: Response) {
     try {
         const { portfolioId } = req.params;
 
@@ -20,7 +21,7 @@ export async function getAllocations(req:Request, res:Response) {
             data: allocations,
         });
     } catch (error) {
-        console.error("Error fetching allocations:", error);
+        logger.error("Error fetching allocations", error);
         return res.status(500).json({
             success: false,
             message: "Failed to fetch portfolio allocations.",
@@ -28,7 +29,7 @@ export async function getAllocations(req:Request, res:Response) {
     }
 }
 
-export async function updateAllocations(req:Request, res:Response) {
+export async function updateAllocations(req: Request, res: Response) {
     try {
         const { portfolioId } = req.params;
         const { allocations } = req.body;
@@ -96,7 +97,7 @@ export async function updateAllocations(req:Request, res:Response) {
             message: "Portfolio allocations updated successfully.",
         });
     } catch (error) {
-        console.error("Error updating allocations:", error);
+        logger.error("Error updating allocations", error);
         return res.status(500).json({
             success: false,
             message: "Failed to update portfolio allocations.",
@@ -105,7 +106,7 @@ export async function updateAllocations(req:Request, res:Response) {
 }
 
 // DELETE /api/allocations/:portfolioId/:tokenId
-export async function deleteSingleAllocation(req:Request, res:Response) {
+export async function deleteSingleAllocation(req: Request, res: Response) {
     try {
         const { portfolioId, tokenId } = req.params;
 
@@ -128,14 +129,14 @@ export async function deleteSingleAllocation(req:Request, res:Response) {
             });
         }
 
-        await deletePortfolioAllocation(portfolioId,tokenId);
+        await deletePortfolioAllocation(portfolioId, tokenId);
 
         return res.status(200).json({
             success: true,
             message: "Portfolio allocation deleted successfully.",
         });
     } catch (error) {
-        console.error("Error deleting allocation:", error);
+        logger.error("Error deleting allocation", error);
         return res.status(500).json({
             success: false,
             message: "Failed to delete portfolio allocation.",
@@ -145,7 +146,7 @@ export async function deleteSingleAllocation(req:Request, res:Response) {
 
 
 // DELETE /api/allocations/:portfolioId
-export async function deleteAllAllocations(req:Request, res:Response) {
+export async function deleteAllAllocations(req: Request, res: Response) {
     try {
         const { portfolioId } = req.params;
 
@@ -176,7 +177,7 @@ export async function deleteAllAllocations(req:Request, res:Response) {
             message: `All (${count}) allocations deleted successfully for portfolio ${portfolioId}.`,
         });
     } catch (error) {
-        console.error("Error deleting all allocations:", error);
+        logger.error("Error deleting all allocations", error);
         return res.status(500).json({
             success: false,
             message: "Failed to delete all portfolio allocations.",

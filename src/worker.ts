@@ -1,14 +1,15 @@
 import dotenv from "dotenv";
+import { logger } from "./utils/logger.js";
 
 dotenv.config();
 
 import "./modules/workers/agent.worker.js";
 
-console.log("[WorkerProcess] Background workers started and listening...");
+logger.info("[WorkerProcess] Background workers started and listening...");
 
 // Handle graceful shutdown
 const handleShutdown = async (signal: string) => {
-    console.log(`\n[${signal}] Shutting down background workers...`);
+    logger.info(`\n[${signal}] Shutting down background workers...`);
     // BullMQ workers handle their own connection closing if configured, 
     // but you can add explicit close calls here if needed.
     process.exit(0);
@@ -18,5 +19,5 @@ process.on("SIGINT", () => handleShutdown("SIGINT"));
 process.on("SIGTERM", () => handleShutdown("SIGTERM"));
 
 
-// TODO: Redeploy my contracts
+// DONE: Redeploy my contracts
 // TODO: Fix envio
