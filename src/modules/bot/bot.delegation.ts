@@ -15,6 +15,7 @@ export async function redeemDelegationService(delegationID: string, reBalance: R
      if(!smartPorfolioAddress){
          throw new Error("smartporfolio address not found");
      }
+           //TODO: smartPortfolioAddress should be gotten from the deeployed portfolio use the delegation   id to find the portfolio address ofthe delegator
 
     if (!delegationID) {
         throw new Error("delegation id is required");

@@ -3,10 +3,8 @@ import {
     createDelegationController,
     revokeDelegationController
 } from "../controllers/delegatorController.js";
-import {userAgentWebhook} from "../controllers/webhookController.js";
-import {verifyWebhookAuth} from "../middleware/webhookMiddleware.js";
 import authMiddleware, {requireRole} from "../middleware/authMiddleware.js";
-import {redeemDelegationController} from "../controllers/testcontroller.js";
+import { redeemDelegationController } from "../controllers/delegatorController.js";
 
 const delegationRouter = Router();
 
@@ -16,7 +14,9 @@ delegationRouter.post('/:smartAccountId',authMiddleware,requireRole(["user"]), c
 // Revoke an existing delegation
 delegationRouter.put('/:delegationId/revoke',authMiddleware,requireRole(["user"]), revokeDelegationController);
 
-delegationRouter.post('/test/redeem', redeemDelegationController);
+
+
+delegationRouter.post('/:smartAccountId/redeem/:delegationId', authMiddleware,requireRole(["bot"]), redeemDelegationController);
 
 
 
