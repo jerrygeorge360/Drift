@@ -41,6 +41,10 @@ export async function rebalancePortfolio(
         return { ...t, currentValue, targetValue, drift };
     });
 
+    drifts.forEach(d => {
+        console.log(`[Rebalancer] Token: ${d.symbol}, Balance: ${d.balance}, Price: ${prices[d.symbol]}, CurrentVal: ${d.currentValue?.toFixed(2)}, TargetVal: ${d.targetValue?.toFixed(2)}, Drift: ${(d.drift! * 100).toFixed(2)}%`);
+    });
+
     const maxDrift = Math.max(...drifts.map(d => Math.abs(d.drift || 0)));
     if (maxDrift < driftTolerance) {
         return { action: "NO_REBALANCE", reason: "All tokens within drift tolerance" };
@@ -70,6 +74,7 @@ export async function rebalancePortfolio(
         //     continue;
         // }
 
+        // HYSTERESIS: Calculate full excess/need to bring to 0% drift (target value)
         const sellExcess = (sell.currentValue || 0) - (sell.targetValue || 0);
         const buyNeed = (buy.targetValue || 0) - (buy.currentValue || 0);
 
@@ -81,21 +86,46 @@ export async function rebalancePortfolio(
         }
 
         const tokenAmountIn = usdAmount / (prices[sell.symbol] || 1);
+        const amountInWei = BigInt(Math.floor(tokenAmountIn * Math.pow(10, sell.decimals)));
+
+        // SLIPPAGE PROTECTION: Get on-chain quote if portfolio address is available
+        let amountOutMin = BigInt(0);
+        if (portfolio.portfolioAddress) {
+            try {
+                const { getEstimatedOut } = await import("../../utils/blockchainhelpers.js");
+                const swapPath = [sell.address, buy.address] as `0x${string}`[];
+                const estimatedAmounts = await getEstimatedOut(
+                    portfolio.portfolioAddress as `0x${string}`,
+                    amountInWei,
+                    swapPath
+                );
+                const expectedOut = estimatedAmounts[estimatedAmounts.length - 1];
+
+                // Apply 1% slippage tolerance
+                const slippageTolerance = 0.01;
+                amountOutMin = BigInt(Math.floor(Number(expectedOut) * (1 - slippageTolerance)));
+
+                console.log(`[Rebalancer] Quote for ${sell.symbol}→${buy.symbol}: Expected ${expectedOut}, Min ${amountOutMin} (1% slippage)`);
+            } catch (error) {
+                console.warn(`[Rebalancer] Could not get on-chain quote, using amountOutMin=0:`, error);
+            }
+        }
 
         params.push({
             botAddress: BotAddress,
             tokenIn: sell.address,
             tokenOut: buy.address,
-            amountIn: BigInt(Math.floor(tokenAmountIn * Math.pow(10, sell.decimals))),
-            amountOutMin: BigInt(0),
+            amountIn: amountInWei,
+            amountOutMin: amountOutMin,
             swapPath: [sell.address, buy.address],
             reason: `Rebalance ${sell.symbol} → ${buy.symbol}`,
         });
 
-        // Update values
+        // Update values to reflect the trade (for multi-trade scenarios)
         sell.currentValue = (sell.currentValue || 0) - usdAmount;
         buy.currentValue = (buy.currentValue || 0) + usdAmount;
 
+        // Move to next token pair when current pair is balanced
         if ((sell.currentValue || 0) <= (sell.targetValue || 0)) i++;
         if ((buy.currentValue || 0) >= (buy.targetValue || 0)) j++;
     }

@@ -4,11 +4,13 @@ import { SnapshotAgent } from "../agent/agent.js";
 import { logger } from "../../utils/logger.js";
 
 // Redis connection for the worker
-const connection = new Redis({
-    host: process.env.REDIS_HOST || "127.0.0.1",
-    port: Number(process.env.REDIS_PORT) || 6379,
-    maxRetriesPerRequest: null,
-});
+const connection = process.env.REDIS_URL
+    ? new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
+    : new Redis({
+        host: process.env.REDIS_HOST || "127.0.0.1",
+        port: Number(process.env.REDIS_PORT) || 6379,
+        maxRetriesPerRequest: null,
+    });
 
 connection.on("connect", () => {
     logger.info(`[AgentWorker] Connected to Redis at ${connection.options.host}:${connection.options.port}`);

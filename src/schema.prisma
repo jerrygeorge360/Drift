@@ -51,9 +51,9 @@ model Portfolio {
   id               String                @id @default(uuid())
   smartAccountId   String                @unique
   name             String
-  portfolioAddress String?               @unique // On-chain portfolio contract address
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
+  portfolioAddress String?               @unique
   smartAccount     SmartAccount          @relation(fields: [smartAccountId], references: [id], onDelete: Cascade)
   allocations      PortfolioAllocation[]
   rebalanceLogs    RebalanceLog[]
@@ -95,6 +95,7 @@ model RebalanceLog {
   amountOut       Float
   reason          String
   executor        String
+  driftPercentage Float?    // Optional drift percentage that triggered the rebalance
   createdAt       DateTime  @default(now())
   blockNumber     String?
   gasUsed         String?

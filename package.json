@@ -5,18 +5,15 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "migrate": "npx prisma migrate dev --name",
-    "generate": "npx prisma generate",
+    "clean": "rm -rf dist",
     "build": "tsc",
+    "generate": "npx prisma generate",
+    "migrate": "npx prisma migrate dev",
+    "predev:all": "npm run clean && npm run generate && npm run build && npm run migrate",
+    "dev:all": "concurrently \"npm run start\" \"npm run worker\" \"npm run start:poller\"",
     "start": "node dist/server.js",
     "start:poller": "node dist/poller.js",
     "worker": "node dist/worker.js",
-    "dev": "nodemon --watch src --exec \"ts-node --esm --experimentalSpecifierResolution=node src/server.ts\"",
-    "dev:worker": "nodemon --watch src --exec \"ts-node --esm --experimentalSpecifierResolution=node src/worker.ts\"",
-    "dev:all": "concurrently \"npm run start\" \"npm run worker\" \"npm run start:poller\"",
-    "start:all": "concurrently \"npm run start\" \"npm run worker\" \"npm run start:poller\"",
-    "clean": "rm -rf dist",
-    "serve": "nodemon --watch src --exec \"npm run clean && npm run build && node dist/server.js\"",
     "test": "jest"
   },
   "devDependencies": {

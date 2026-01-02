@@ -2,11 +2,13 @@ import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import { logger } from "../../utils/logger.js";
 
-const connection = new Redis({
-    host: process.env.REDIS_HOST || "127.0.0.1",
-    port: Number(process.env.REDIS_PORT) || 6379,
-    maxRetriesPerRequest: null,
-});
+const connection = process.env.REDIS_URL
+    ? new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
+    : new Redis({
+        host: process.env.REDIS_HOST || "127.0.0.1",
+        port: Number(process.env.REDIS_PORT) || 6379,
+        maxRetriesPerRequest: null,
+    });
 
 connection.on('error', (err) => logger.error('Redis error', err));
 

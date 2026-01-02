@@ -1,32 +1,32 @@
-# 🌊 Drift: Intelligent On-Chain Portfolio Management
+# Drift: Intelligent On-Chain Portfolio Management
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
-[![Built for Monad](https://img.shields.io/badge/Built%20for-Monad-blueviolet)](https://monad.xyz/)
+[![TypeScript](https://img.shields.io/badge/100%25-TypeScript-blue)](https://www.typescriptlang.org/)
 
-**Drift** is an autonomous portfolio management protocol built for the **Monad ecosystem**. It leverages **MetaMask Smart Accounts (ERC-4337)** and **AI-driven execution** to provide seamless, explainable, and automated on-chain asset management.
-
----
-
-## 💡 Vision
-
-To redefine decentralized finance by bridging the gap between **AI intelligence** and **on-chain execution**. Drift enables users to set high-level financial goals while autonomous agents handle the complex, manual work of rebalancing, monitoring, and optimizing portfolios—all with 100% transparency and user control.
+**Drift** is an autonomous portfolio management protocol designed for high-performance EVM environments. It combines **ERC-4337 Account Abstraction** and **ERC-7715 Delegation** with AI-driven execution to automate on-chain asset management.
 
 ---
 
-## ✨ Core Capabilities
+## The Goal
 
-*   **🧩 Dynamic Allocations**: Define target percentages for your assets (e.g., 40% ETH, 30% USDC, 30% MON).
-*   **⚙️ Delegated Automation**: Authorize a secure execution bot to rebalance your portfolio using the **MetaMask Delegation Toolkit**.
-*   **🧠 Explainable AI**: Every trade is backed by an AI-generated analysis, explaining *why* a rebalance was triggered.
-*   **📊 Real-Time Analytics**: Powered by **Envio** indexing, providing a GraphQL API for deep portfolio insights.
-*   **🛡️ Security First**: Built on ERC-4337, ensuring users retain ownership of their funds while delegating specific actions.
+The goal is simple: bridge the gap between off-chain intelligence and on-chain execution. Drift allows users to define financial goals, while autonomous agents handle the execution—rebalancing, monitoring, and optimizing portfolios transparently.
 
 ---
 
-## 🏗️ Architectural Pattern
+## Core Capabilities
 
-Drift follows a **distributed, event-driven architecture** designed for high reliability and scalability.
+*   **ERC-7715 Delegation**: Utilizes the new standard for granular permissions, allowing execution bots to rebalance portfolios without having full access to user funds.
+*   **Dynamic Allocations**: Users define target percentages (e.g., 40% ETH, 30% USDC, 30% MON), and the system maintains them.
+*   **Explainable AI**: Every automated action is backed by an analysis from a memory-equipped agent, explaining exactly *why* a rebalance was triggered.
+*   **Dual Price Discovery**: Configurable pricing via **CoinGecko Oracle** or **Uniswap V2 Router** to prevent arbitrage and ensure accurate execution.
+*   **Security First**: Built on ERC-4337, ensuring users retain full ownership while delegating specific, scoped actions.
+*   **Multi-Chain Support**: Currently deployed and tested on **Monad Testnet** and **Sepolia Testnet**.
+
+---
+
+## Architecture
+
+Drift follows a distributed, event-driven architecture designed for reliability.
 
 ```mermaid
 graph TD
@@ -82,37 +82,38 @@ graph TD
 
 ---
 
-## 🧠 Deep Dive: Modules
+## Modules
 
-### 🤖 AI Snapshot Agent
-The `SnapshotAgent` is a tool-calling autonomous loop powered by **Llama 3.3**.
-*   **Memory System**: Maintains a historical context of market conditions to recognize recurring patterns.
-*   **Tool-Calling**: Can autonomously fetch price data, save detailed analyses, and summarize findings.
-*   **Explainability**: Generates human-readable summaries for every automated action.
+### AI Snapshot Agent
+The `SnapshotAgent` is a tool-calling loop powered by **Llama 3.3**.
+*   **Memory System**: Maintains context of market conditions to recognize recurring patterns.
+*   **Tool-Calling**: Autonomously fetches price data and saves analyses.
+*   **Explainability**: Generates human-readable summaries for every action.
 
-### ⚖️ Portfolio Rebalancer
-The rebalancing engine calculates the "drift" of your portfolio in real-time.
-*   **Drift Calculation**: `(Current Value - Target Value) / Target Value`.
-*   **Automated Execution**: When drift exceeds a user-defined tolerance (e.g., 5%), the rebalancer generates a sequence of swaps to return the portfolio to its target state.
-*   **Slippage Protection**: Integrated with DEX routers to ensure trades are executed at optimal prices.
+### Portfolio Rebalancer
+The rebalancing engine calculates portfolio "drift" in real-time.
+*   **Smart Thresholds**: Configurable drift thresholds (default 15% for testnets) to prevent over-trading.
+*   **Cooldown Protection**: Mandatory cooldowns between rebalances to prevent rapid-fire trading.
+*   **Slippage Protection**: Integrated with DEX routers to ensure optimal trade execution.
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 | :--- | :--- |
 | **Smart Contracts** | Solidity, Hardhat, OpenZeppelin |
 | **Account Abstraction** | ERC-4337, MetaMask Smart Accounts Kit, Permissionless |
-| **Delegation** | MetaMask Delegation Toolkit |
-| **AI / LLM** | Groq SDK, Llama 3.3 (70B), Custom Memory System |
+| **Delegation** | **ERC-7715** (via MetaMask Delegation Toolkit) |
+| **Networks** | **Monad Testnet**, **Sepolia Testnet** |
+| **AI / LLM** | Groq SDK, Llama 3.3 (70B) |
 | **Backend** | Node.js, TypeScript, Prisma (PostgreSQL) |
 | **Task Queue** | BullMQ, Redis |
 | **Indexing** | Envio (GraphQL) |
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 *   **Node.js** (v18+)
@@ -131,7 +132,9 @@ The rebalancing engine calculates the "drift" of your portfolio in real-time.
     npm install
     ```
 3.  **Configure Environment**:
-    Create a `.env` file based on `.env.example` and fill in your RPC URLs, private keys, and API keys.
+    Create a `.env` file based on `.env.example`.
+    *   Set `PRICE_SOURCE=ROUTER` to use on-chain pricing.
+    *   Set `CHAIN_ID=10143` for Monad or `11155111` for Sepolia.
 4.  **Database Setup**:
     ```bash
     npx prisma migrate dev
@@ -139,43 +142,63 @@ The rebalancing engine calculates the "drift" of your portfolio in real-time.
     ```
 
 ### Running the Services
-Drift runs as a distributed system. You can start all services concurrently:
+Drift runs as a distributed system. You can start all services concurrently (API, Worker, Poller) with a single command.
+
+**Note**: Ensure PostgreSQL and Redis are running locally before executing this command.
+
 ```bash
 npm run dev:all
 ```
-This starts:
-*   **Server**: The main API and user interface.
-*   **Worker**: Handles background rebalancing and AI tasks.
-*   **Poller**: Monitors blockchain state and price feeds.
+This command will automatically:
+1.  Clean the `dist` folder.
+2.  Generate Prisma Client.
+3.  Build the TypeScript project.
+4.  Run database migrations.
+5.  Start all services.
 
----
+### 🐳 Docker Support
 
-## 📂 Project Structure
+You can run the entire stack (API, Worker, Poller, Postgres, Redis) with a single command:
 
-```text
-src/
-├── modules/
-│   ├── agent/        # AI Snapshot Agent & Tooling
-│   ├── rebalancer/   # Portfolio Drift & Rebalance Logic
-│   ├── bot/          # Execution Bot & Delegation Handling
-│   └── jobs/         # BullMQ Job Definitions
-├── controllers/      # API Endpoints
-├── routes/           # Express Routing
-├── schema.prisma     # Database Schema
-└── server.ts         # Application Entry Point
+```bash
+docker-compose up --build
 ```
 
+This will start:
+*   **API Server**: `http://localhost:4000`
+*   **Prisma Studio**: `http://localhost:5555`
+*   **PostgreSQL**: Port `5432`
+*   **Redis**: Port `6379`
+*   **Worker & Poller**: Background services
+
 ---
 
-## 🏆 Hackathon & Ecosystem Fit
+## Documentation
+
+Comprehensive documentation is available in the `docs/` folder:
+
+### Core Documentation
+- **[Project Overview](docs/Project_Overview.md)** - Vision and roadmap
+- **[Project Complexity Analysis](docs/Project_Complexity_Analysis.md)** - **MUST READ**: Technical depth and solo developer achievements
+- **[Deployment Guide](docs/Deployment_Guide.md)** - Production deployment and operations
+- **[API Documentation](docs/API_Documentation.md)** - API reference
+
+### Technical Deep Dives
+- **[Rebalancing Engine](docs/Rebalancing_Engine.md)** - Drift detection and trade execution
+- **[AI Agent System](docs/AI_Agent_System.md)** - Memory-based AI analysis
+- **[Multi-Chain Support](docs/Multi-Chain_Support.md)** - Cross-chain implementation details
+
+---
+
+## Hackathon Achievements
 
 *   **Best AI Agent**: Fully autonomous agent with memory and tool-calling.
 *   **Best On-Chain Automation**: True non-custodial automation via delegation.
-*   **Most Innovative Delegation**: Leveraging MetaMask's latest delegation features for DeFi.
+*   **Most Innovative Delegation**: Leveraging ERC-7715 for DeFi.
 *   **Best Use of Envio**: High-performance indexing for real-time portfolio tracking.
 
 ---
 
-## ⚖️ License
+## License
 
 Distributed under the **MIT License**. See `LICENSE` for more information.

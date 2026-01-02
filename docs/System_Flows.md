@@ -1,6 +1,6 @@
-# MetaSmartPort System Flows
+# Drift System Flows
 
-This document outlines the operational flows for the three primary roles in the MetaSmartPort ecosystem: **User**, **Bot**, and **Admin**.
+This document outlines the operational flows for the three primary roles in the Drift ecosystem: **User**, **Bot**, and **Admin**.
 
 ---
 
@@ -82,7 +82,7 @@ The Admin flow is for system maintenance, security, and configuration.
 The AI Agent acts as a high-level observer, providing deep insights and maintaining a "memory" of the system's state.
 
 ### A. Scheduling & Triggering
-1.  **Scheduler**: A background job (`scheduler.ts`) runs every 1 minute and adds a task to the Redis-backed `ai-agent-queue`.
+1.  **Scheduler**: A background job (`scheduler.ts`) runs every 30 minute and adds a task to the Redis-backed `ai-agent-queue`.
 2.  **Worker**: A dedicated worker process (`agent.worker.ts`) picks up the task and initializes the `SnapshotAgent`.
 
 ### B. Intelligent Analysis

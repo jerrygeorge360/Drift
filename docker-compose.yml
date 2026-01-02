@@ -1,15 +1,96 @@
-version: "3.8"
 services:
-  backend:
+  api:
     build: .
     ports:
       - "4000:4000"
     environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/drift
+      - REDIS_URL=redis://redis:6379
       - NODE_ENV=production
+    env_file:
+      - .env
     depends_on:
+      - db
       - redis
+      - migrator
+    command: npm run start
+    restart: always
+
+  migrator:
+    build: .
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/drift
+    env_file:
+      - .env
+    depends_on:
+      - db
+    command: npx prisma db push --schema=./src/schema.prisma --accept-data-loss
+    restart: on-failure
+
+  studio:
+    build: .
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/drift
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:5555:5555"
+    depends_on:
+      - db
+      - migrator
+    command: npx prisma studio --schema=./src/schema.prisma --port 5555 --hostname 0.0.0.0
+    restart: always
+
+  worker:
+    build: .
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/drift
+      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+      - migrator
+    command: npm run worker
+    restart: always
+
+  poller:
+    build: .
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/drift
+      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+      - migrator
+    command: npm run start:poller
+    restart: always
+
+  db:
+    image: postgres:14-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=drift
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
 
   redis:
-    image: redis:alpine
+    image: redis:6-alpine
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -15,12 +15,13 @@ export type RebalanceToken = {
 export type RebalancePortfolio = {
   portfolioId: string;
   smartAccountId: string;
+  portfolioAddress?: string; // Added for slippage protection
   tokens: RebalanceToken[];
 };
 
 export type RebalanceResult =
-  | { action: "NO_REBALANCE"; reason?: string }
-  | { action: "REBALANCE"; params: RebalanceParams[] };
+  | { action: "NO_REBALANCE"; reason?: string; maxDrift?: number }
+  | { action: "REBALANCE"; params: RebalanceParams[]; maxDrift?: number };
 
 export type RebalanceParams = {
   botAddress: string;

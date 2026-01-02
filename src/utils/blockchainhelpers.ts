@@ -1,4 +1,5 @@
 import { publicClient } from "../controllers/clients.js";
+import { logger } from "./logger.js";
 import smartPortfolio from "../contracts/abi/UserPortfolio.json" with { type: 'json' };
 
 const SMART_PORTFOLIO_ABI = smartPortfolio.abi;
@@ -8,32 +9,32 @@ const SMART_PORTFOLIO_ABI = smartPortfolio.abi;
 // ========================================
 
 // Write pause (owner only)
-export const writePause = async(
+export const writePause = async (
     contractAddress: `0x${string}`,
-    walletClient:any
-)=> await walletClient.writeContract({
+    walletClient: any
+) => await walletClient.writeContract({
     address: contractAddress,
     abi: SMART_PORTFOLIO_ABI,
     functionName: "pause",
 })
 
 // Unpause the contract (owner only)
-export const writeUnpause = async(
+export const writeUnpause = async (
     contractAddress: `0x${string}`,
     walletClient: any
-)=> await walletClient.writeContract({
+) => await walletClient.writeContract({
     address: contractAddress,
     abi: SMART_PORTFOLIO_ABI,
     functionName: "unpause",
 })
 
 // Set allocation (owner only)
-export const writeSetAllocation = async(
+export const writeSetAllocation = async (
     contractAddress: `0x${string}`,
     walletClient: any,
     tokens: `0x${string}`[],
     percents: number[]
-)=> await walletClient.writeContract({
+) => await walletClient.writeContract({
     address: contractAddress,
     abi: SMART_PORTFOLIO_ABI,
     functionName: "setAllocation",
@@ -41,21 +42,21 @@ export const writeSetAllocation = async(
 })
 
 // Remove allocation (owner only)
-export const writeRemoveAllocation = async(
+export const writeRemoveAllocation = async (
     contractAddress: `0x${string}`,
     walletClient: any
-)=> await walletClient.writeContract({
+) => await walletClient.writeContract({
     address: contractAddress,
     abi: SMART_PORTFOLIO_ABI,
-    functionName: "removeAllocation",   
+    functionName: "removeAllocation",
 })
 
 // Revoke approval (owner only)
-export const writeRevokeApproval = async(
+export const writeRevokeApproval = async (
     contractAddress: `0x${string}`,
     walletClient: any,
     token: `0x${string}`
-)=> await walletClient.writeContract({
+) => await walletClient.writeContract({
     address: contractAddress,
     abi: SMART_PORTFOLIO_ABI,
     functionName: "revokeApproval",
@@ -63,11 +64,11 @@ export const writeRevokeApproval = async(
 })
 
 // Transfer ownership (owner only)
-export const writeTransferOwnership = async(
+export const writeTransferOwnership = async (
     contractAddress: `0x${string}`,
     walletClient: any,
     newOwner: `0x${string}`
-)=> await walletClient.writeContract({
+) => await walletClient.writeContract({
     address: contractAddress,
     abi: SMART_PORTFOLIO_ABI,
     functionName: "transferOwnership",
@@ -168,3 +169,98 @@ export const getOwner = async (contractAddress: `0x${string}`): Promise<`0x${str
 
     return result as `0x${string}`;
 };
+// Get token balance for an address
+export const getTokenBalance = async (
+    tokenAddress: `0x${string}`,
+    ownerAddress: `0x${string}`
+): Promise<bigint> => {
+    return await publicClient.readContract({
+        address: tokenAddress,
+        abi: [
+            {
+                name: "balanceOf",
+                type: "function",
+                stateMutability: "view",
+                inputs: [{ name: "account", type: "address" }],
+                outputs: [{ type: "uint256" }],
+            },
+        ],
+        functionName: "balanceOf",
+        args: [ownerAddress],
+    }) as bigint;
+};
+
+/**
+ * Syncs the database 'amount' field with real on-chain balances for a portfolio.
+ */
+export const syncPortfolioBalances = async (
+    smartAccountAddress: string,
+    portfolioId: string,
+    allocations: any[]
+) => {
+    logger.info(`Syncing balances for Smart Account: ${smartAccountAddress}`);
+
+    const updates = allocations.map(async (alloc) => {
+        try {
+            const balance = await getTokenBalance(
+                alloc.token.address as `0x${string}`,
+                smartAccountAddress as `0x${string}`
+            );
+
+            // Convert from wei to human-readable float based on decimals
+            const humanReadableBalance = Number(balance) / Math.pow(10, alloc.token.decimals);
+
+            return {
+                id: alloc.id,
+                amount: humanReadableBalance
+            };
+        } catch (error) {
+            logger.error(`Failed to fetch balance for ${alloc.token.symbol}:`, error);
+            return null;
+        }
+    });
+
+    const results = await Promise.all(updates);
+
+    // Update database in bulk (or sequentially if needed)
+    for (const res of results) {
+        if (res) {
+            await import("../config/db.js").then(async (m) => {
+                await m.default.portfolioAllocation.update({
+                    where: { id: res.id },
+                    data: { amount: res.amount }
+                });
+            });
+        }
+    }
+
+    logger.info(`Finished syncing balances for ${smartAccountAddress}`);
+};
+
+/**
+ * Gets the "Spot Price" from the Uniswap pool.
+ * Returns how much 'baseToken' you get for 1 unit of 'token'.
+ */
+export const getSpotPriceFromRouter = async (
+    smartPortfolioAddress: `0x${string}`,
+    tokenAddress: `0x${string}`,
+    tokenDecimals: number,
+    baseTokenAddress: `0x${string}`,
+    baseTokenDecimals: number
+): Promise<number> => {
+    try {
+        // We ask for the price of 1 full token
+        const amountIn = BigInt(Math.pow(10, tokenDecimals));
+        const path = [tokenAddress, baseTokenAddress] as `0x${string}`[];
+
+        const amounts = await getEstimatedOut(smartPortfolioAddress, amountIn, path);
+        const amountOut = amounts[amounts.length - 1];
+
+        // Convert back to a human-readable number
+        return Number(amountOut) / Math.pow(10, baseTokenDecimals);
+    } catch (error) {
+        logger.warn(`Could not fetch spot price for ${tokenAddress} via router:`, error);
+        return 0;
+    }
+};
+

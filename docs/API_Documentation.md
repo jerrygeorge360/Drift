@@ -151,7 +151,9 @@ Deploy a new smart account for the authenticated user.
 **Request Body:**
 ```json
 {
-  "name": "string"
+  "name": "string",
+  "chainId": "string", // "monad" (default) or "sepolia"
+  "autoDeploy": "boolean"
 }
 ```
 
@@ -907,7 +909,16 @@ Retrieve the current status of smart contracts.
 
 #### Get Rebalance Logs
 
-**Endpoint:** `GET /rebalance/:portfolioId`
+Retrieve historical rebalancing logs for analysis and monitoring.
+
+**Endpoint:** `GET /rebalance/logs`
+**Authorization:** User role required (admins see all, users see own)
+
+**Query Parameters:**
+- `portfolioId`: Filter by specific portfolio
+- `status`: Filter by status (SUCCESS, FAILED, PENDING)
+- `limit`: Number of records to return (default: 50)
+- `offset`: Skip number of records for pagination
 
 **Response:**
 ```json
@@ -916,19 +927,148 @@ Retrieve the current status of smart contracts.
     {
       "id": "string",
       "portfolioId": "string",
-      "tokenIn": {
-        "symbol": "string",
-        "address": "string"
-      },
-      "tokenOut": {
-        "symbol": "string",
-        "address": "string"
-      },
-      "amountIn": "number",
-      "amountOut": "number",
-      "reason": "string",
-      "executor": "string",
+      "timestamp": "string",
+      "status": "SUCCESS|FAILED|PENDING",
       "transactionHash": "string",
+      "gasUsed": "string",
+      "gasCost": "string",
+      "driftPercentage": "number",
+      "tokenAmounts": "string",
+      "swapPath": "string",
+      "errorMessage": "string",
+      "executionTime": "number",
+      "portfolio": {
+        "id": "string",
+        "smartAccount": {
+          "address": "string"
+        }
+      }
+    }
+  ],
+  "pagination": {
+    "total": "number",
+    "page": "number", 
+    "limit": "number",
+    "hasNext": "boolean"
+  }
+}
+```
+
+---
+
+#### Get Rebalance Analytics
+
+Get analytics and performance metrics for rebalancing activities.
+
+**Endpoint:** `GET /rebalance/analytics`
+**Authorization:** User role required
+
+**Query Parameters:**
+- `portfolioId`: Specific portfolio (optional)
+- `timeframe`: `7d`, `30d`, `90d` (default: 30d)
+
+**Response:**
+```json
+{
+  "summary": {
+    "totalRebalances": "number",
+    "successRate": "number",
+    "averageDrift": "number",
+    "totalGasCost": "string",
+    "averageGasCost": "string",
+    "averageExecutionTime": "number"
+  },
+  "trends": [
+    {
+      "date": "string",
+      "rebalanceCount": "number",
+      "averageDrift": "number",
+      "totalGasCost": "string"
+    }
+  ],
+  "portfolioPerformance": [
+    {
+      "portfolioId": "string",
+      "rebalanceCount": "number",
+      "successRate": "number", 
+      "averageDrift": "number",
+      "totalGasCost": "string"
+    }
+  ]
+}
+```
+
+---
+
+## AI Analysis System
+
+### Get Latest Analysis
+
+Retrieve the most recent AI market analysis.
+
+**Endpoint:** `GET /analysis/latest`
+
+**Response:**
+```json
+{
+  "analysis": {
+    "id": "string",
+    "content": "string",
+    "createdAt": "string",
+    "summary": "string",
+    "keyInsights": ["string"]
+  }
+}
+```
+
+---
+
+### Get Analysis History
+
+Retrieve historical AI analyses with pagination.
+
+**Endpoint:** `GET /analysis/history`
+
+**Query Parameters:**
+- `limit`: Number of analyses to return (default: 10)
+- `offset`: Skip number of records
+
+**Response:**
+```json
+{
+  "analyses": [
+    {
+      "id": "string",
+      "content": "string",
+      "createdAt": "string",
+      "summary": "string"
+    }
+  ],
+  "pagination": {
+    "total": "number",
+    "hasNext": "boolean"
+  }
+}
+```
+
+---
+
+### Get AI Memory Context
+
+Retrieve AI memory summaries that provide context for analysis.
+
+**Endpoint:** `GET /analysis/memory`
+
+**Query Parameters:**
+- `limit`: Number of memory entries (default: 5)
+
+**Response:**
+```json
+{
+  "memories": [
+    {
+      "id": "string",
+      "summary": "string", 
       "createdAt": "string"
     }
   ]
@@ -937,14 +1077,43 @@ Retrieve the current status of smart contracts.
 
 ---
 
-### Webhooks
+### Server-Sent Events (SSE)
 
-#### Webhook Endpoint
+Real-time updates for analysis and rebalancing events.
 
-Receive webhook notifications from external services.
+**Endpoint:** `GET /sse`
 
-**Endpoint:** `POST /webhook`
-**Authorization:** Webhook authentication required
+**Event Types:**
+- `new_analysis`: New AI analysis available
+- `rebalance_complete`: Portfolio rebalancing completed
+- `rebalance_failed`: Portfolio rebalancing failed
+- `price_update`: New market price data
+
+**Example Events:**
+```javascript
+// New Analysis Event
+{
+  "type": "new_analysis",
+  "data": {
+    "analysisId": "string",
+    "timestamp": "string",
+    "summary": "string",
+    "keyInsights": ["string"]
+  }
+}
+
+// Rebalance Complete Event
+{
+  "type": "rebalance_complete",
+  "data": {
+    "portfolioId": "string",
+    "transactionHash": "string",
+    "driftPercentage": "number",
+    "gasUsed": "string", 
+    "timestamp": "string"
+  }
+}
+```
 
 ---
 

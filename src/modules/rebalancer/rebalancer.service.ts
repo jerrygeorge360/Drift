@@ -14,6 +14,7 @@ export function mapPortfolio(
     return {
         portfolioId: portfolio.id,
         smartAccountId: portfolio.smartAccountId,
+        portfolioAddress: portfolio.portfolioAddress || undefined,
         tokens: portfolio.allocations.map(a => ({
             symbol: a.token.symbol,
             address: a.token.address,

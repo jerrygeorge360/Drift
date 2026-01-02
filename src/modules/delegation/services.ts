@@ -132,7 +132,7 @@ export const redeemDelegation = async (
         };
     }
 
-    logger.info("Sending user operation with gas params", gasParams);
+    logger.info("Sending user operation with gas params");
 
     // STEP 1: Send approval UserOperation
     const approvalOpHash = await bundlerClient.sendUserOperation({
@@ -143,11 +143,11 @@ export const redeemDelegation = async (
         paymaster: paymasterClient,
     });
 
-    logger.info("Approval UserOperation sent", approvalOpHash);
+    logger.info("Approval UserOperation sent");
 
     // Wait for approval confirmation
     const approvalReceipt = await bundlerClient.waitForUserOperationReceipt({ hash: approvalOpHash });
-    logger.info("Approval receipt", approvalReceipt);
+    logger.info("Approval receipt received");
 
     if (approvalReceipt.receipt.status !== "success") {
         throw new Error(`Approval transaction reverted: ${approvalReceipt.receipt.transactionHash}`);
@@ -164,11 +164,11 @@ export const redeemDelegation = async (
         paymaster: paymasterClient,
     });
 
-    logger.info("UserOperation sent", userOpHash);
+    logger.info("UserOperation sent");
 
     // Wait for confirmation
     const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
-    logger.info("UserOperation receipt", receipt);
+    logger.info("UserOperation receipt received");
     if (receipt.status !== "success") throw new Error(`Transaction reverted: ${receipt.transactionHash}`);
 
     return {
@@ -205,7 +205,7 @@ export const autoDeploySmartAccount = async (
     let gasParams: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint };
     try {
         const pimlicoFee = await pimlicoClient.getUserOperationGasPrice();
-        logger.info("Pimlico gas prices", pimlicoFee);
+        logger.info("Pimlico gas prices received");
         gasParams = pimlicoFee.fast;
     } catch {
         const gasEstimate = await publicClient.estimateFeesPerGas();
@@ -236,7 +236,7 @@ export const autoDeploySmartAccount = async (
         paymaster: paymasterClient,
     });
 
-    logger.info("Deployment UserOperation sent", userOpHash);
+    logger.info("Deployment UserOperation sent");
 
     // Wait for confirmation
     const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
@@ -246,7 +246,7 @@ export const autoDeploySmartAccount = async (
     }
 
     logger.info("Smart account deployed successfully", smartAccount.address);
-    logger.info("Transaction hash", receipt.transactionHash);
+    logger.info("Transaction hash received");
 
     return {
         deployed: true,

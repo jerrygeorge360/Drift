@@ -6,6 +6,7 @@ import { RedeemResult } from "../modules/delegation/types.js";
 import { redeemDelegationService } from "../modules/bot/bot.delegation.js";
 import { getDelegationBySmartAccountId } from "../utils/dbhelpers.js";
 import { logger } from "../utils/logger.js";
+import { syncPortfolioBalances, getSpotPriceFromRouter } from "../utils/blockchainhelpers.js";
 
 
 /**
@@ -13,7 +14,7 @@ import { logger } from "../utils/logger.js";
  */
 export const userAgentWebhook = async (req: Request, res: Response) => {
     const { botName, marketData } = req.body;
-    logger.debug('marketData received', marketData);
+    logger.debug('marketData received');
 
 
     try {
@@ -68,6 +69,12 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
             },
         });
 
+        if (smartAccounts.length === 0) {
+            logger.info('No smart accounts found with active portfolios and allocations. Skipping rebalancing.');
+        } else {
+            logger.info(`Fetched ${smartAccounts.length} smart accounts with portfolios and allocations`);
+        }
+
         const prices: Record<string, number> = {};
         const health: Record<string, any> = {};
 
@@ -86,33 +93,175 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
             if (!portfolio) continue;
             accountsProcessed++;
 
-            const input = mapPortfolio(portfolio as any);
+            // Sync on-chain balances to DB before rebalancing
+            try {
+                await syncPortfolioBalances(
+                    account.address,
+                    portfolio.id,
+                    portfolio.allocations
+                );
 
-            const result = await rebalancePortfolio(input, prices, undefined, 0.05);
+                // Refresh the portfolio object from DB after sync
+                const updatedPortfolio = await db.portfolio.findUnique({
+                    where: { id: portfolio.id },
+                    include: { allocations: { include: { token: true } } }
+                });
 
-            logger.info(`Portfolio ${portfolio.id} decision: ${result.action}`);
+                if (!updatedPortfolio) continue;
 
-            if (result.action === "REBALANCE") {
-                const smartAccountIdWithPortfolio = portfolio.smartAccountId;
+                // 2. Determine Price Source (Oracle vs Router)
+                const priceSource = process.env.PRICE_SOURCE || 'ORACLE';
+                const spotPrices: Record<string, number> = { ...prices }; // Default to Oracle prices
 
-                // 1. Get the delegation
-                const delegation = await getDelegationBySmartAccountId(smartAccountIdWithPortfolio);
-                if (!delegation) continue;
+                if (priceSource === 'ROUTER') {
+                    // Get USDC from the database as the base token (not from user's portfolio)
+                    const baseToken = await db.token.findUnique({ where: { symbol: 'USDC' } });
 
-                if (delegation.expiresAt && delegation.expiresAt < new Date()) continue;
-                if (delegation.revoked) continue;
+                    if (baseToken && updatedPortfolio.portfolioAddress) {
+                        logger.info(`Using ROUTER price source. Fetching spot prices relative to ${baseToken.symbol}`);
+                        for (const alloc of updatedPortfolio.allocations) {
+                            if (alloc.token.symbol === baseToken.symbol) {
+                                spotPrices[alloc.token.symbol] = 1.0;
+                            } else {
+                                const spotPrice = await getSpotPriceFromRouter(
+                                    updatedPortfolio.portfolioAddress as `0x${string}`,
+                                    alloc.token.address as `0x${string}`,
+                                    alloc.token.decimals,
+                                    baseToken.address as `0x${string}`,
+                                    baseToken.decimals
+                                );
+                                if (spotPrice > 0) {
+                                    logger.debug(`Spot price for ${alloc.token.symbol}: ${spotPrice} (Oracle fallback: ${prices[alloc.token.symbol]})`);
+                                    spotPrices[alloc.token.symbol] = spotPrice;
+                                }
+                            }
+                        }
+                    } else {
+                        logger.warn("PRICE_SOURCE is set to ROUTER but USDC token not found in database or no portfolio address. Falling back to ORACLE.");
+                    }
+                } else {
+                    logger.info("Using ORACLE price source (CoinGecko).");
+                }
 
-                // 2. Execute each rebalance trade
-                for (const params of result.params) {
-                    try {
-                        const txResult: RedeemResult = await redeemDelegationService(delegation.id, params);
-                        logger.info(`Executed trade: ${params.tokenIn} → ${params.tokenOut}`, txResult);
-                        tradesExecuted++;
-                    } catch (err: any) {
-                        logger.error(`Failed to execute trade ${params.tokenIn} → ${params.tokenOut}`, err);
-                        tradesFailed++;
+                const input = mapPortfolio(updatedPortfolio as any);
+                
+                // Check for cooldown period - prevent rebalancing within 15 minutes
+                const cooldownMinutes = 15;
+                const lastRebalance = await db.rebalanceLog.findFirst({
+                    where: { 
+                        portfolioId: portfolio.id,
+                        status: 'success', // Only consider successful rebalances for cooldown
+                    },
+                    orderBy: { createdAt: 'desc' }
+                });
+
+                if (lastRebalance) {
+                    const timeSinceLastRebalance = Date.now() - lastRebalance.createdAt.getTime();
+                    const cooldownPeriod = cooldownMinutes * 60 * 1000; // Convert to milliseconds
+                    
+                    if (timeSinceLastRebalance < cooldownPeriod) {
+                        const minutesRemaining = Math.ceil((cooldownPeriod - timeSinceLastRebalance) / (60 * 1000));
+                        logger.info(`Portfolio ${portfolio.id} in cooldown period. Last rebalance: ${lastRebalance.createdAt.toISOString()}. ${minutesRemaining} minutes remaining.`);
+                        continue; // Skip this portfolio
                     }
                 }
+                
+                const result = await rebalancePortfolio(input, spotPrices, undefined, 0.15); // 15% threshold for testnet
+
+                logger.info(`Portfolio ${portfolio.id} decision: ${result.action}`);
+
+                if (result.action === "REBALANCE") {
+                    const smartAccountIdWithPortfolio = portfolio.smartAccountId;
+
+                    // 1. Get the delegation
+                    const delegation = await getDelegationBySmartAccountId(smartAccountIdWithPortfolio);
+                    if (!delegation) continue;
+
+                    if (delegation.expiresAt && delegation.expiresAt < new Date()) continue;
+                    if (delegation.revoked) continue;
+
+                    // 2. Execute each rebalance trade
+                    for (const params of result.params) {
+                        try {
+                            const txResult: RedeemResult = await redeemDelegationService(delegation.id, params);
+                            logger.info(`Executed trade: ${params.tokenIn} → ${params.tokenOut}`);
+                            
+                            // Save transaction result to database
+                            try {
+                                // Get token details from addresses
+                                const tokenIn = await db.token.findUnique({
+                                    where: { address: params.tokenIn }
+                                });
+                                const tokenOut = await db.token.findUnique({
+                                    where: { address: params.tokenOut }
+                                });
+
+                                if (tokenIn && tokenOut) {
+                                    await db.rebalanceLog.create({
+                                        data: {
+                                            portfolioId: portfolio.id,
+                                            tokenInId: tokenIn.id,
+                                            tokenOutId: tokenOut.id,
+                                            amountIn: Number(params.amountIn) / Math.pow(10, tokenIn.decimals), // Convert from wei
+                                            amountOut: Number(params.amountOutMin || 0) / Math.pow(10, tokenOut.decimals), // Convert from wei
+                                            reason: params.reason || "Automated rebalancing",
+                                            executor: params.botAddress,
+                                            userOpHash: txResult.userOpHash,
+                                            transactionHash: txResult.transactionHash,
+                                            blockNumber: txResult.blockNumber,
+                                            status: txResult.status,
+                                            gasUsed: txResult.gasUsed,
+                                            driftPercentage: result.maxDrift || 0   
+                                        }
+                                    });
+                                    logger.info("✅ Rebalance log saved to database");
+                                } else {
+                                    logger.warn("⚠️ Could not find tokens in database, skipping log save");
+                                }
+                            } catch (dbError: any) {
+                                logger.error("⚠️ Failed to save rebalance log to database:", dbError);
+                                // Don't fail the entire request if DB save fails
+                            }
+
+                            tradesExecuted++;
+                          
+                        } catch (err: any) {
+                            logger.error(`Failed to execute trade ${params.tokenIn} → ${params.tokenOut}`, err);
+                            
+                            // Save failed transaction to database
+                            try {
+                                const tokenIn = await db.token.findUnique({
+                                    where: { address: params.tokenIn }
+                                });
+                                const tokenOut = await db.token.findUnique({
+                                    where: { address: params.tokenOut }
+                                });
+
+                                if (tokenIn && tokenOut) {
+                                    await db.rebalanceLog.create({
+                                        data: {
+                                            portfolioId: portfolio.id,
+                                            tokenInId: tokenIn.id,
+                                            tokenOutId: tokenOut.id,
+                                            amountIn: Number(params.amountIn) / Math.pow(10, tokenIn.decimals),
+                                            amountOut: 0,
+                                            reason: (params.reason ? params.reason + ' - ' : '') + `Failed automated rebalancing: ${err.message}`,
+                                            executor: params.botAddress,
+                                            status: "failed",
+                                        }
+                                    });
+                                    logger.info("❌ Failed rebalance log saved to database");
+                                }
+                            } catch (dbError: any) {
+                                logger.error("⚠️ Failed to save failed rebalance log:", dbError);
+                            }
+
+                            tradesFailed++;
+                        }
+                    }
+                }
+            } catch (err: any) {
+                logger.error(`Error processing account ${account.address}:`, err);
             }
         }
 
