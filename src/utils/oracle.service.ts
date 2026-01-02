@@ -53,7 +53,7 @@ const MAX_CONSECUTIVE_FAILURES = 5;
 
 // Polling intervals (in milliseconds) - Can be updated
 
-let TOKEN_INTERVAL = 2 * 60 * 1000;
+let TOKEN_INTERVAL = 5 * 60 * 1000;
 
 // Polling state
 let pollingState: PollingState = {

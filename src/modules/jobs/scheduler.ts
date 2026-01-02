@@ -13,11 +13,11 @@ export const initScheduler = async () => {
             "run-global-agent",
             {},
             {
-                repeat: { pattern: "*/1 * * * *" },
+                repeat: { pattern: "*/30 * * * *" },
                 jobId: "global-agent"
             }
         );
-        logger.info("[Scheduler] Global agent job scheduled (every 1 minute).");
+        logger.info("[Scheduler] Global agent job scheduled (every 30 minute).");
     } catch (error: any) {
         logger.error("[Scheduler] Failed to schedule global agent job", error);
     }
