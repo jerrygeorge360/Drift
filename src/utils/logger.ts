@@ -133,9 +133,19 @@ function getCallerInfo() {
 
 function formatArgs(args: any[]) {
     if (args.length === 0) return "";
-    return args.map(arg =>
-        typeof arg === 'object' ? `\n${JSON.stringify(arg, null, 2)}` : String(arg)
-    ).join(" ");
+    return args.map(arg => {
+        if (typeof arg === 'object' && arg !== null) {
+            try {
+                return `\n${JSON.stringify(arg, (key, value) =>
+                    typeof value === 'bigint' ? value.toString() : value,
+                    2
+                )}`;
+            } catch (e) {
+                return `\n[Unserializable Object: ${e}]`;
+            }
+        }
+        return String(arg);
+    }).join(" ");
 }
 
 // ------------------ Generic Logger ------------------ //

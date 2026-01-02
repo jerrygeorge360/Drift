@@ -80,11 +80,13 @@ export async function rebalancePortfolio(
             continue;
         }
 
+        const tokenAmountIn = usdAmount / (prices[sell.symbol] || 1);
+
         params.push({
             botAddress: BotAddress,
             tokenIn: sell.address,
             tokenOut: buy.address,
-            amountIn: BigInt(Math.floor(usdAmount * 1e18)), // naive conversion, replace with decimals if needed
+            amountIn: BigInt(Math.floor(tokenAmountIn * Math.pow(10, sell.decimals))),
             amountOutMin: BigInt(0),
             swapPath: [sell.address, buy.address],
             reason: `Rebalance ${sell.symbol} → ${buy.symbol}`,

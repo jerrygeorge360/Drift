@@ -180,6 +180,7 @@ export const redeemDelegation = async (
     };
 };
 
+// TODOOOOO:::::::::::::: add validation
 /**
  * Automatically deploy a smart account on-chain if it hasn't been deployed yet.
  * This function sends a minimal no-op UserOperation to trigger deployment.

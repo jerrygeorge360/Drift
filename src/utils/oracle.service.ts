@@ -249,7 +249,7 @@ async function pollAllPrices(): Promise<TokenPrices | null> {
             if (!tokenInfo) continue;
 
             const data = prices[cgId];
-            structuredPrices[tokenInfo.id] = {
+            structuredPrices[tokenInfo.symbol] = {
                 usd: data.usd ?? 0,
                 usd_market_cap: data.usd_market_cap,
                 usd_24h_vol: data.usd_24h_vol,

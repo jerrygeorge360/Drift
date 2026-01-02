@@ -1,4 +1,4 @@
-import { RebalancePortfolio,PortfolioWithAllocations } from "./rebalancer.types.js";
+import { RebalancePortfolio, PortfolioWithAllocations } from "./rebalancer.types.js";
 
 
 
@@ -17,6 +17,7 @@ export function mapPortfolio(
         tokens: portfolio.allocations.map(a => ({
             symbol: a.token.symbol,
             address: a.token.address,
+            decimals: a.token.decimals,
             balance: a.amount,
             targetPercent: a.percent / 100,
         })),

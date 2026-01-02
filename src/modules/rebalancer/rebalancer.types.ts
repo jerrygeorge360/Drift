@@ -4,6 +4,7 @@ export type HealthState = "HEALTHY" | "DEGRADED" | "UNHEALTHY" | "DEAD";
 export type RebalanceToken = {
   symbol: string;
   address: string;
+  decimals: number;     // token decimals
   balance: number;      // token amount
   targetPercent: number; // e.g., 0.3 = 30%
   currentValue?: number; // will be calculated
@@ -33,11 +34,11 @@ export type RebalanceParams = {
 
 
 export type PortfolioWithAllocations = Prisma.PortfolioGetPayload<{
-    include: {
-        allocations: {
-            include: {
-                token: true;
-            };
-        };
+  include: {
+    allocations: {
+      include: {
+        token: true;
+      };
     };
+  };
 }>;
