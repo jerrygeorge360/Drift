@@ -106,67 +106,33 @@ Monitors on-chain prices and triggers rebalancing checks.
 npm run start:poller
 ```
 
-### Using PM2 (Recommended for Production)
-
-We recommend using PM2 to manage these processes in production.
-
+### D. Run all services
 ```bash
-# Install PM2
-npm install -g pm2
-
-# Start all services
-pm2 start dist/server.ts --name drift-api
-pm2 start dist/modules/jobs/worker.ts --name drift-worker
-pm2 start dist/modules/oracle/poller.ts --name drift-poller
-
-# Save configuration
-pm2 save
+npm run dev:all
 ```
+This command will automatically:
+1.  Clean the `dist` folder.
+2.  Generate Prisma Client.
+3.  Build the TypeScript project.
+4.  Run database migrations.
+5.  Start all services.
 
 ## Docker Deployment
-
-(Optional) You can also deploy using Docker Compose.
-
-```yaml
-version: '3.8'
-services:
-  api:
-    build: .
-    command: npm run start:server
-    env_file: .env
-    ports:
-      - "3000:3000"
-    depends_on:
-      - db
-      - redis
-
-  worker:
-    build: .
-    command: npm run start:worker
-    env_file: .env
-    depends_on:
-      - db
-      - redis
-
-  poller:
-    build: .
-    command: npm run start:poller
-    env_file: .env
-    depends_on:
-      - db
-      - redis
-
-  db:
-    image: postgres:14
-    environment:
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: drift
-
-  redis:
-    image: redis:6
+```bash
+docker-compose up --build
 ```
 
-## 🔍 Verification
+This will start:
+*   **API Server**: `http://localhost:4000`
+*   **Prisma Studio**: `http://localhost:5555`
+*   **PostgreSQL**: Port `5432`
+*   **Redis**: Port `6379`
+*   **Worker & Poller**: Background services
+
+---
+
+
+## Verification
 
 After deployment, verify the system is running correctly:
 

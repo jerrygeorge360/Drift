@@ -156,7 +156,7 @@ This command will automatically:
 4.  Run database migrations.
 5.  Start all services.
 
-### 🐳 Docker Support
+### Docker Support
 
 You can run the entire stack (API, Worker, Poller, Postgres, Redis) with a single command:
 
