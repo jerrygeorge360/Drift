@@ -4,7 +4,7 @@ import { syncOrDeployPortfolio } from "../modules/portfolio/portfolio.service.js
 import { SupportedChain, isValidChain } from "../config/chainConfig.js";
 import { logger } from "../utils/logger.js";
 
-// ✅ Get portfolio by smartAccountId
+// Get portfolio by smartAccountId
 export const getPortfolioController = async (req: Request, res: Response) => {
     const { smartAccountId } = req.params;
 

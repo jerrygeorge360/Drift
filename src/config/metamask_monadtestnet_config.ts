@@ -67,7 +67,7 @@ export function initializeMetaMaskEnvironment(): void {
             monadTestnetEnvironment     // Custom environment configuration
         );
         
-        console.log("✅ MetaMask Smart Accounts Kit configured for Monad Testnet");
+        console.log("   MetaMask Smart Accounts Kit configured for Monad Testnet");
         console.log(`   Chain ID: ${MONAD_TESTNET_CHAIN_ID}`);
         console.log(`   Kit Version: ${METAMASK_KIT_VERSION}`);
         console.log(`   Simple Factory: ${monadTestnetEnvironment.SimpleFactory}`);
@@ -77,7 +77,7 @@ export function initializeMetaMaskEnvironment(): void {
         console.log(`   Implementations: ${Object.keys(monadTestnetEnvironment.implementations).length} available`);
         
     } catch (error) {
-        console.error("❌ Failed to configure MetaMask environment for Monad testnet:", error);
+        console.error("Failed to configure MetaMask environment for Monad testnet:", error);
         throw new Error(`MetaMask environment initialization failed: ${error}`);
     }
 }
@@ -137,7 +137,7 @@ export function validateEnvironmentAddresses(): boolean {
 
     for (const address of addresses) {
         if (!address || !address.startsWith('0x') || address.length !== 42) {
-            console.error(`❌ Invalid contract address: ${address}`);
+            console.error(`Invalid contract address: ${address}`);
             return false;
         }
     }

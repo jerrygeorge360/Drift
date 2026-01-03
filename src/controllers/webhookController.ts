@@ -214,12 +214,12 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
                                             driftPercentage: result.maxDrift || 0   
                                         }
                                     });
-                                    logger.info("✅ Rebalance log saved to database");
+                                    logger.info("Rebalance log saved to database");
                                 } else {
-                                    logger.warn("⚠️ Could not find tokens in database, skipping log save");
+                                    logger.warn("Could not find tokens in database, skipping log save");
                                 }
                             } catch (dbError: any) {
-                                logger.error("⚠️ Failed to save rebalance log to database:", dbError);
+                                logger.error("Failed to save rebalance log to database:", dbError);
                                 // Don't fail the entire request if DB save fails
                             }
 
@@ -250,10 +250,10 @@ export const userAgentWebhook = async (req: Request, res: Response) => {
                                             status: "failed",
                                         }
                                     });
-                                    logger.info("❌ Failed rebalance log saved to database");
+                                    logger.info("Failed rebalance log saved to database");
                                 }
                             } catch (dbError: any) {
-                                logger.error("⚠️ Failed to save failed rebalance log:", dbError);
+                                logger.error("Failed to save failed rebalance log:", dbError);
                             }
 
                             tradesFailed++;
