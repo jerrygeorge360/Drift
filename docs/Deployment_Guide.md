@@ -1,8 +1,8 @@
 # Drift Deployment Guide
 
-This guide covers the deployment of the MetaSmartPort (Drift) system, including environment configuration, database setup, and service orchestration.
+This guide covers the deployment of the Drift system, including environment configuration, database setup, and service orchestration.
 
-## 📋 Prerequisites
+##  Prerequisites
 
 Before deploying, ensure you have the following installed:
 
@@ -11,7 +11,7 @@ Before deploying, ensure you have the following installed:
 *   **Redis**: v6 or higher (required for BullMQ)
 *   **Git**: For version control
 
-## 🔧 Environment Configuration
+## Environment Configuration
 
 Create a `.env` file in the root directory. You can start by copying the example:
 
@@ -51,9 +51,6 @@ cp .env.example .env
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
-| `DRIFT_THRESHOLD` | Drift % to trigger rebalance | `0.15` (15%) |
-| `COOLDOWN_MINUTES` | Minutes between rebalances | `15` |
-| `SLIPPAGE_TOLERANCE` | Max slippage allowed | `0.01` (1%) |
 | `PRICE_SOURCE` | Price feed source | `ROUTER` or `ORACLE` |
 
 ### AI Agent Configuration
@@ -62,7 +59,7 @@ cp .env.example .env
 | :--- | :--- |
 | `GROQ_API_KEY` | API Key for Groq (Llama 3.3) |
 
-## 🚀 Deployment Steps
+##  Deployment Steps
 
 ### 1. Database Setup
 
@@ -126,7 +123,7 @@ pm2 start dist/modules/oracle/poller.ts --name drift-poller
 pm2 save
 ```
 
-## 🐳 Docker Deployment
+## Docker Deployment
 
 (Optional) You can also deploy using Docker Compose.
 
@@ -173,6 +170,5 @@ services:
 
 After deployment, verify the system is running correctly:
 
-1.  **Check API Health**: `GET /health` should return 200 OK.
-2.  **Check Logs**: Ensure `drift-poller` is fetching prices and `drift-worker` is ready to process jobs.
-3.  **Test Rebalance**: Manually trigger a rebalance or wait for the poller to detect drift.
+1.  **Check Logs**: Ensure `drift-poller` is fetching prices and `drift-worker` is ready to process jobs.
+2.  **Test Rebalance**: Manually trigger a rebalance or wait for the poller to detect drift.

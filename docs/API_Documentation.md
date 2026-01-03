@@ -1,10 +1,10 @@
-# MetaSmartPort API Documentation
+# Drift API Documentation
 
 ## Overview
 
-MetaSmartPort is a decentralized portfolio management platform that enables users to create smart accounts, manage portfolios, and delegate trading permissions to automated bots. The API provides comprehensive functionality for portfolio creation, delegation management, and blockchain operations.
+Drift is a decentralized portfolio management platform that enables users to create smart accounts, manage portfolios, and delegate trading permissions to automated bots. The API provides comprehensive functionality for portfolio creation, delegation management, and blockchain operations.
 
-**Base URL:** `https://your-api-domain.com/api`
+**Base URL:** `https://api-domain.com/api`
 
 ## Authentication
 

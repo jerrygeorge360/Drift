@@ -1,8 +1,8 @@
 # AI Snapshot Agent System
 
-The **AI Snapshot Agent** is the intelligence layer of MetaSmartPort. It uses a Large Language Model (LLM) to analyze market conditions, maintain historical context, and provide explainable insights for every portfolio action.
+The **AI Snapshot Agent** is the intelligence layer of Drift. It uses a Large Language Model (LLM) to analyze market conditions, maintain historical context, and provide explainable insights for every portfolio action.
 
-## 🧠 Architecture
+## Architecture
 
 The agent is built on a **ReAct (Reasoning + Acting)** loop, allowing it to:
 1.  **Observe**: Look at the current task (e.g., "Analyze market conditions for ETH").
@@ -18,7 +18,7 @@ The agent is built on a **ReAct (Reasoning + Acting)** loop, allowing it to:
 
 ---
 
-## 💾 Memory System
+##  Memory System
 
 One of the key innovations in Drift is the agent's ability to "remember" previous states. This prevents the AI from treating every analysis as an isolated event.
 
@@ -38,7 +38,7 @@ When the agent starts a new analysis:
 
 ---
 
-## 🛠️ Tools
+## Tools
 
 The agent has access to the following tools:
 
@@ -58,7 +58,7 @@ The agent has access to the following tools:
 
 ---
 
-## 🔄 Operational Flow
+## Operational Flow
 
 1.  **Trigger**: The `scheduler` enqueues an analysis job (every 30 mins).
 2.  **Freshness Check**: The worker checks if new price data has arrived since the last analysis. If not, it skips (saving costs).
@@ -72,19 +72,3 @@ The agent has access to the following tools:
 5.  **Notification**:
     *   System emits an SSE event `new_analysis`.
     *   Dashboard updates in real-time.
-
-## 📝 Example Output
-
-```markdown
-## Market Snapshot: ETH/USDC
-
-**Sentiment**: Neutral-Bullish (65/100)
-
-**Analysis**:
-Ethereum has shown resilience over the last 24 hours, bouncing off the $2,800 support level. 
-Compared to yesterday's analysis (where we saw high volatility), the market has stabilized. 
-Volume is increasing, suggesting a potential breakout.
-
-**Recommendation**:
-Maintain current allocations. The slight drift (2%) is within tolerance and does not warrant a rebalance yet.
-```

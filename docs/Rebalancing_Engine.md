@@ -6,7 +6,7 @@ The Drift Rebalancing Engine is the core autonomous trading component of MetaSma
 
 ---
 
-## 🎯 Core Architecture
+## Core Architecture
 
 ### Drift Detection Algorithm
 
@@ -32,7 +32,7 @@ The engine implements a sophisticated multi-token rebalancing approach:
 
 ---
 
-## 📊 Intelligent Safeguards
+## Intelligent Safeguards
 
 ### 1. Testnet Price Volatility Protection
 
@@ -90,7 +90,7 @@ const amountOutMin = BigInt(Math.floor(Number(expectedOut) * (1 - slippageTolera
 
 ---
 
-## 🔄 Rebalance Execution Flow
+## Rebalance Execution Flow
 
 ### Step 1: Market Data Processing
 ```
@@ -150,7 +150,7 @@ if (result.action === "REBALANCE") {
 
 ---
 
-## 📈 Performance Tracking
+## Performance Tracking
 
 ### Comprehensive Logging
 
@@ -166,38 +166,11 @@ The system tracks detailed metrics for each rebalance:
 | `swapPath` | Token swap route taken | Execution verification |
 | `executionTime` | Time from trigger to completion | Latency monitoring |
 
-### Analytics Dashboard Integration
-
-```sql
--- Query drift trends over time
-SELECT 
-    DATE(timestamp) as date,
-    AVG(driftPercentage) as avg_drift,
-    COUNT(*) as rebalance_count,
-    SUM(gasCost) as total_gas_cost
-FROM RebalanceLog 
-WHERE timestamp > NOW() - INTERVAL 30 DAY
-GROUP BY DATE(timestamp);
-```
 
 ---
 
-## 🛡️ Risk Management
+## Risk Management
 
-### Position Size Limits
-
-```typescript
-// Maximum single trade size (prevents excessive slippage)
-const MAX_TRADE_SIZE_USD = 10000;
-
-// Minimum trade size (prevents dust trades)
-const MIN_TRADE_SIZE_USD = 50;
-
-const usdAmount = Math.min(sellExcess, buyNeed);
-if (usdAmount < MIN_TRADE_SIZE_USD || usdAmount > MAX_TRADE_SIZE_USD) {
-    continue; // Skip this trade
-}
-```
 
 ### Health Gate Integration
 
@@ -211,134 +184,8 @@ if (health[token.symbol] && health[token.symbol] !== "HEALTHY") {
 
 ---
 
-## 🔧 Configuration Management
-
-### Environment Variables
-
-```bash
-# Rebalancing Configuration
-DRIFT_THRESHOLD=0.15              # 15% drift threshold
-COOLDOWN_MINUTES=15               # 15-minute cooldown
-SLIPPAGE_TOLERANCE=0.01           # 1% slippage protection
-MAX_TRADE_SIZE_USD=10000          # Position size limits
-MIN_TRADE_SIZE_USD=50
-
-# DEX Integration
-UNISWAP_V2_ROUTER=0x...          # Router contract address
-PRICE_IMPACT_THRESHOLD=0.05       # 5% max price impact
-PRICE_SOURCE=ROUTER               # 'ORACLE' or 'ROUTER' for price discovery
-```
-
-### Runtime Adjustments
-
-Administrators can adjust rebalancing parameters without code changes:
-
-```typescript
-// Dynamic configuration via database
-const config = await db.systemConfig.findUnique({
-    where: { key: 'REBALANCING_PARAMS' }
-});
-
-const {
-    driftThreshold,
-    cooldownMinutes,
-    slippageTolerance
-} = JSON.parse(config.value);
-```
 
 ---
 
-## 📊 Monitoring and Alerts
-
-### Real-Time Metrics
-
-1. **Rebalance Success Rate**: % of successful vs failed rebalances
-2. **Average Drift**: Portfolio drift levels over time
-3. **Gas Efficiency**: Gas cost per dollar rebalanced
-4. **Slippage Tracking**: Actual vs expected trade execution
-
-### Alert Conditions
-
-```typescript
-// High drift alert (portfolio significantly off-target)
-if (maxDrift > 0.25) {
-    await sendAlert('HIGH_DRIFT', { portfolioId, drift: maxDrift });
-}
-
-// Failed rebalance alert
-if (rebalanceResult.status === 'FAILED') {
-    await sendAlert('REBALANCE_FAILED', { portfolioId, error: rebalanceResult.error });
-}
-
-// Unusual gas costs
-if (gasCost > expectedGasCost * 2) {
-    await sendAlert('HIGH_GAS_COST', { portfolioId, gasCost, expected: expectedGasCost });
-}
-```
-
----
-
-## 🚀 Future Enhancements
-
-### Planned Features
-
-1. **Dynamic Threshold Adjustment**: AI-powered threshold optimization based on market volatility
-2. **MEV Protection**: Integration with MEV-resistant execution venues
-3. **Multi-DEX Routing**: Optimal routing across multiple DEXs for best prices
-4. **Predictive Rebalancing**: ML-driven rebalancing based on predicted price movements
-5. **Gas Optimization**: Batch multiple rebalances into single transaction when possible
-
-### Advanced Analytics
-
-1. **Performance Attribution**: Track portfolio performance vs benchmark
-2. **Risk-Adjusted Returns**: Sharpe ratio and other risk metrics
-3. **Rebalancing Alpha**: Measure value added by active rebalancing
-4. **Cost Analysis**: Total cost of ownership including gas and slippage
-
----
-
-## 📚 Developer Resources
-
-### Testing Rebalancing Logic
-
-```typescript
-// Unit test example
-describe('Rebalancer', () => {
-    it('should not rebalance when drift is below threshold', async () => {
-        const portfolio = createMockPortfolio();
-        const prices = { ETH: 3000, USDC: 1.0 };
-        
-        const result = await rebalancePortfolio(portfolio, prices, {}, 0.15);
-        
-        expect(result.action).toBe('NO_REBALANCE');
-        expect(result.reason).toBe('All tokens within drift tolerance');
-    });
-});
-```
-
-### Integration Guidelines
-
-```typescript
-// Custom rebalancing hook
-export const useRebalancing = (portfolioId: string) => {
-    const [lastRebalance, setLastRebalance] = useState(null);
-    const [cooldownRemaining, setCooldownRemaining] = useState(0);
-    
-    // Real-time cooldown tracking
-    useEffect(() => {
-        const interval = setInterval(() => {
-            if (lastRebalance) {
-                const elapsed = Date.now() - lastRebalance.timestamp;
-                const remaining = Math.max(0, (15 * 60 * 1000) - elapsed);
-                setCooldownRemaining(remaining);
-            }
-        }, 1000);
-        
-        return () => clearInterval(interval);
-    }, [lastRebalance]);
-    
-    return { cooldownRemaining, canRebalance: cooldownRemaining === 0 };
-};
-```
 
 The Drift Rebalancing Engine represents a sophisticated approach to automated portfolio management, balancing the need for precise allocation maintenance with practical considerations of cost, slippage, and market volatility.

@@ -124,8 +124,8 @@ The rebalancing engine calculates portfolio "drift" in real-time.
 ### Installation
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/your-repo/metasmartport.git
-    cd metasmartport
+    git clone git@github.com:jerrygeorge360/Drift.git
+    cd Drift
     ```
 2.  **Install dependencies**:
     ```bash

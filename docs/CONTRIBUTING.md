@@ -1,6 +1,6 @@
 # Contributing to Drift 🌊
 
-First off, thank you for considering contributing to Drift! It's people like you who make the Monad ecosystem a better place for everyone.
+First off, thank you for considering contributing to Drift! It's people like you who make the Defi ecosystem a better place for everyone.
 
 This guide will help you get started with the development environment and the contribution workflow.
 
@@ -21,7 +21,7 @@ Drift is a distributed system. To run it locally, you will need:
 
 ## 🛠 Contribution Workflow
 
-1.  **Fork the Repository**: Create your own fork of the `metasmartport` repository.
+1.  **Fork the Repository**: Create your own fork of the `Drift` repository.
 2.  **Create a Branch**: Use descriptive branch names:
     - `feat/your-feature-name` for new features.
     - `fix/issue-description` for bug fixes.
@@ -58,11 +58,7 @@ We use **Jest** for unit and integration testing.
 npm test
 ```
 
-### Blockchain Simulation
-For smart contract testing, use **Hardhat**:
-```bash
-cd hardhat
-npx hardhat test
+
 ```
 
 ### Manual Verification
@@ -77,7 +73,5 @@ npm run dev:all
 
 If you have questions or need help, feel free to:
 - Open an **Issue** on GitHub.
-- Join our **Discord** (link coming soon).
-- Reach out to the maintainers directly.
 
 Happy coding! 🌊

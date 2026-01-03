@@ -16,3 +16,4 @@ prisma
 dist
 
 logs
+.idea
