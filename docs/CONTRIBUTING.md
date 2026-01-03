@@ -1,4 +1,4 @@
-# Contributing to Drift 🌊
+# Contributing to Drift 
 
 First off, thank you for considering contributing to Drift! It's people like you who make the Defi ecosystem a better place for everyone.
 
@@ -6,7 +6,7 @@ This guide will help you get started with the development environment and the co
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 Please read the [README.md](README.md) first for the basic tech stack and architectural overview.
 
@@ -15,11 +15,10 @@ Drift is a distributed system. To run it locally, you will need:
 - **Node.js** (v18+)
 - **PostgreSQL** (Database)
 - **Redis** (Task Queue for BullMQ)
-- **Hardhat** (Blockchain simulation)
 
 ---
 
-## 🛠 Contribution Workflow
+## Contribution Workflow
 
 1.  **Fork the Repository**: Create your own fork of the `Drift` repository.
 2.  **Create a Branch**: Use descriptive branch names:
@@ -32,7 +31,7 @@ Drift is a distributed system. To run it locally, you will need:
 
 ---
 
-## 📜 Coding Standards
+## Coding Standards
 
 ### TypeScript
 - **Strict Typing**: Avoid `any` at all costs. Use interfaces and types for everything.
@@ -50,7 +49,7 @@ Drift is a distributed system. To run it locally, you will need:
 
 ---
 
-## 🧪 Testing & Verification
+## Testing & Verification
 
 ### Running Tests
 We use **Jest** for unit and integration testing.
@@ -69,9 +68,9 @@ npm run dev:all
 
 ---
 
-## 💬 Communication
+## Communication
 
 If you have questions or need help, feel free to:
 - Open an **Issue** on GitHub.
 
-Happy coding! 🌊
+Happy coding!
