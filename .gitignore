@@ -17,3 +17,4 @@ dist
 
 logs
 .idea
+.DS_Store
