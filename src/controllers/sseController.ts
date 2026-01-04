@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { analysisEmitter } from '../modules/sse/sseEmitter.js';
 import { logger } from '../utils/logger.js';
+import { dashboardSSEController } from '../routes/dashboardRoute.js';
 
 export const sseAnalysisHandler = (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -20,3 +21,6 @@ export const sseAnalysisHandler = (req: Request, res: Response) => {
         analysisEmitter.off('new_analysis', onNewAnalysis);
     });
 };
+
+// Export dashboard SSE controller for use in rebalance triggers
+export { dashboardSSEController };

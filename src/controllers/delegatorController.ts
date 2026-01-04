@@ -35,6 +35,28 @@ export const createDelegationController = async (req: AuthRequest, res: Response
         }
         const userId = req.user?.id;
         const smartAccountId = req.params.smartAccountId;
+
+        // Check if delegation already exists for this smart account
+        const { PrismaClient } = await import('@prisma/client');
+        const prisma = new PrismaClient();
+
+        try {
+            const existingDelegation = await prisma.delegation.findUnique({
+                where: { smartAccountId: smartAccountId }
+            });
+
+            if (existingDelegation && !existingDelegation.revoked) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Delegation already exists for this smart account",
+                    error: "DELEGATION_EXISTS",
+                    delegationId: existingDelegation.id
+                });
+            }
+        } finally {
+            await prisma.$disconnect();
+        }
+
         // Get all smart accounts of user
         const userSmartAccounts = await getUserSmartAccounts(userId);
 
@@ -253,3 +275,68 @@ export const revokeDelegationController = async (req: AuthRequest, res: Response
 
 // DONE : implement revoke of delegation.
 // DONE : add proper validation in the revoke delegation
+
+// Check if smart account has delegation
+export const checkSmartAccountDelegation = async (req: Request, res: Response) => {
+    try {
+        const { smartAccountId } = req.params;
+
+        if (!smartAccountId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: "Smart account ID is required" 
+            });
+        }
+
+        // First check if smart account exists
+        const smartAccount = await findSmartAccountById(smartAccountId);
+        if (!smartAccount) {
+            return res.status(404).json({ 
+                success: false, 
+                error: "Smart account not found" 
+            });
+        }
+
+        // Check for delegation using Prisma
+        const { PrismaClient } = await import('@prisma/client');
+        const prisma = new PrismaClient();
+        
+        try {
+            const delegation = await prisma.delegation.findUnique({
+                where: { 
+                    smartAccountId: smartAccountId 
+                },
+                select: {
+                    id: true,
+                    revoked: true,
+                    expiresAt: true
+                }
+            });
+
+            const hasDelegation = delegation !== null && !delegation.revoked;
+            
+            // Check if delegation is expired
+            const isExpired = delegation?.expiresAt ? new Date() > delegation.expiresAt : false;
+            
+            res.json({ 
+                success: true, 
+                data: {
+                    hasDelegation: hasDelegation && !isExpired,
+                    delegationExists: delegation !== null,
+                    isRevoked: delegation?.revoked || false,
+                    isExpired: isExpired
+                }
+            });
+        } finally {
+            await prisma.$disconnect();
+        }
+
+    } catch (error) {
+        console.error('Check delegation error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to check delegation status',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+};

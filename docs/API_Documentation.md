@@ -1,10 +1,26 @@
-# Drift API Documentation
+# MetaSmartPort API Documentation
 
 ## Overview
 
-Drift is a decentralized portfolio management platform that enables users to create smart accounts, manage portfolios, and delegate trading permissions to automated bots. The API provides comprehensive functionality for portfolio creation, delegation management, and blockchain operations.
+MetaSmartPort is a decentralized portfolio management platform that enables users to create smart accounts, manage portfolios, and delegate trading permissions to automated bots. The API provides comprehensive functionality for portfolio creation, delegation management, and blockchain operations.
 
 **Base URL:** `https://api-domain.com/api`
+
+## Table of Contents
+
+1. [Authentication & User Management](#authentication--user-management)
+2. [Smart Accounts](#smart-accounts)
+3. [Delegations](#delegations)
+4. [Portfolio Management](#portfolio-management)
+5. [Tokens & Allocations](#tokens--allocations)
+6. [Rebalancing](#rebalancing)
+7. [Dashboard & Real-time Data](#dashboard--real-time-data)
+8. [SSE (Server-Sent Events)](#sse-server-sent-events)
+9. [Bot Management (Admin)](#bot-management-admin)
+10. [Contract Configuration (Admin)](#contract-configuration-admin)
+11. [Oracle & Price Data (Admin)](#oracle--price-data-admin)
+12. [Blockchain Operations](#blockchain-operations)
+13. [Webhooks](#webhooks)
 
 ## Authentication
 
@@ -30,6 +46,7 @@ Content-Type: application/json
 
 - **user**: Can manage own portfolios, delegations, and allocations
 - **admin**: Full system access including bot management, token administration, and contract configuration
+- **bot**: Special role for automated trading operations
 
 ---
 
@@ -139,7 +156,35 @@ Remove a user from the system.
 
 ---
 
-## Smart Account Management
+## Smart Accounts
+
+### Get Supported Chains
+
+Get list of supported blockchain networks.
+
+**Endpoint:** `GET /smartAccounts/chains`
+**Authorization:** Required
+
+**Response:**
+```json
+{
+  "supportedChains": [
+    {
+      "id": "monad",
+      "name": "Monad Testnet",
+      "chainId": 10143
+    },
+    {
+      "id": "sepolia",
+      "name": "Sepolia Testnet", 
+      "chainId": 11155111
+    }
+  ],
+  "defaultChain": "monad"
+}
+```
+
+---
 
 ### Create Smart Account
 
@@ -151,8 +196,7 @@ Deploy a new smart account for the authenticated user.
 **Request Body:**
 ```json
 {
-  "name": "string",
-  "chainId": "string", // "monad" (default) or "sepolia"
+  "portfolioName": "string",
   "autoDeploy": "boolean"
 }
 ```
@@ -160,12 +204,23 @@ Deploy a new smart account for the authenticated user.
 **Response:**
 ```json
 {
-  "id": "string",
-  "address": "string",
-  "name": "string",
-  "ownerAddress": "string",
-  "userId": "string",
-  "createdAt": "string"
+  "message": "Smart account created successfully",
+  "account": {
+    "id": "string",
+    "userId": "string",
+    "address": "string",
+    "ownerAddress": "string",
+    "deployed": "boolean",
+    "createdAt": "string",
+    "portfolio": {
+      "id": "string",
+      "name": "string"
+    }
+  },
+  "deployment": {
+    "deployed": "boolean",
+    "transactionHash": "string"
+  }
 }
 ```
 
@@ -185,10 +240,13 @@ Retrieve all smart accounts for the authenticated user.
     {
       "id": "string",
       "address": "string",
-      "name": "string",
       "ownerAddress": "string",
       "deployed": "boolean",
-      "createdAt": "string"
+      "createdAt": "string",
+      "portfolio": {
+        "id": "string",
+        "name": "string"
+      }
     }
   ]
 }
@@ -198,7 +256,7 @@ Retrieve all smart accounts for the authenticated user.
 
 ### Get Smart Account by ID
 
-Retrieve a specific smart account.
+Get details of a specific smart account.
 
 **Endpoint:** `GET /smartAccounts/:id`
 **Authorization:** Required
@@ -206,12 +264,13 @@ Retrieve a specific smart account.
 **Response:**
 ```json
 {
-  "id": "string",
-  "address": "string",
-  "name": "string",
-  "ownerAddress": "string",
-  "deployed": "boolean",
-  "createdAt": "string"
+  "smartAccount": {
+    "id": "string",
+    "address": "string",
+    "ownerAddress": "string",
+    "deployed": "boolean",
+    "createdAt": "string"
+  }
 }
 ```
 
@@ -228,6 +287,338 @@ Remove a smart account.
 ```json
 {
   "message": "Smart account deleted successfully"
+}
+```
+
+---
+
+## Delegations
+
+### Create Delegation
+
+Create a new delegation for a smart account.
+
+**Endpoint:** `POST /delegations/:smartAccountId`
+**Authorization:** User required
+
+**Response:**
+```json
+{
+  "delegation": {
+    "id": "string",
+    "smartAccountId": "string",
+    "delegatorAddress": "string",
+    "delegateAddress": "string",
+    "expiresAt": "string",
+    "signature": "object",
+    "createdAt": "string"
+  }
+}
+```
+
+---
+
+### Check Delegation Status
+
+Check if a smart account has an active delegation.
+
+**Endpoint:** `GET /delegations/:smartAccountId/check`
+**Authorization:** Not required
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "hasDelegation": "boolean",
+    "delegationExists": "boolean", 
+    "isRevoked": "boolean",
+    "isExpired": "boolean"
+  }
+}
+```
+
+---
+
+### Revoke Delegation
+
+Revoke an existing delegation.
+
+**Endpoint:** `PUT /delegations/:delegationId/revoke`
+**Authorization:** User required
+
+**Response:**
+```json
+{
+  "message": "Delegation revoked successfully"
+}
+```
+
+---
+
+### Redeem Delegation
+
+Redeem a delegation for bot operations.
+
+**Endpoint:** `POST /delegations/:smartAccountId/redeem/:delegationId`
+**Authorization:** Bot role required
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "redeemed": "boolean",
+    "transactionHash": "string"
+  }
+}
+```
+
+---
+
+## Rebalancing
+
+### Create Rebalance Log
+
+Create a new rebalance log entry.
+
+**Endpoint:** `POST /rebalance`
+
+**Request Body:**
+```json
+{
+  "portfolioId": "string",
+  "tokenInId": "string", 
+  "tokenOutId": "string",
+  "amountIn": "number",
+  "amountOut": "number",
+  "reason": "string",
+  "executor": "string"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "string",
+    "portfolioId": "string",
+    "tokenInId": "string",
+    "tokenOutId": "string",
+    "amountIn": "number",
+    "amountOut": "number",
+    "reason": "string",
+    "executor": "string",
+    "createdAt": "string"
+  }
+}
+```
+
+---
+
+### Get Rebalance Analytics
+
+Get comprehensive rebalance analytics and performance metrics.
+
+**Endpoint:** `GET /rebalance/analytics`
+
+**Query Parameters:**
+- `portfolioId` (optional): Filter by specific portfolio
+- `timeframe` (optional): `7d`, `30d` (default), `90d`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "summary": {
+      "totalRebalances": "number",
+      "successRate": "number",
+      "averageDrift": "number",
+      "totalGasCost": "string",
+      "averageGasCost": "string"
+    },
+    "trends": [
+      {
+        "date": "string",
+        "rebalanceCount": "number",
+        "averageDrift": "number",
+        "totalGasCost": "string"
+      }
+    ],
+    "portfolioPerformance": [
+      {
+        "portfolioId": "string",
+        "rebalanceCount": "number",
+        "successRate": "number",
+        "averageDrift": "number",
+        "totalGasCost": "string"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Get Rebalance Logs
+
+Get rebalance logs for a specific portfolio.
+
+**Endpoint:** `GET /rebalance/:portfolioId`
+
+**Response:**
+```json
+{
+  "success": true,
+  "count": "number",
+  "data": [
+    {
+      "id": "string",
+      "portfolioId": "string",
+      "tokenInId": "string",
+      "tokenOutId": "string",
+      "amountIn": "number",
+      "amountOut": "number",
+      "reason": "string",
+      "executor": "string",
+      "driftPercentage": "number",
+      "gasUsed": "string",
+      "status": "string",
+      "transactionHash": "string",
+      "createdAt": "string"
+    }
+  ]
+}
+```
+
+---
+
+## Dashboard & Real-time Data
+
+### Get Portfolio Dashboard Data
+
+Get comprehensive dashboard data for a portfolio.
+
+**Endpoint:** `GET /dashboard/portfolio/:portfolioId/dashboard`
+**Authorization:** Required
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "portfolio": {
+      "id": "string",
+      "name": "string",
+      "totalValueUSD": "number",
+      "allocations": [
+        {
+          "token": {
+            "symbol": "string",
+            "name": "string"
+          },
+          "percent": "number",
+          "amount": "number",
+          "valueUSD": "number"
+        }
+      ]
+    },
+    "performance": {
+      "drift": "number",
+      "lastRebalance": "string",
+      "totalRebalances": "number"
+    },
+    "timestamp": "string"
+  }
+}
+```
+
+---
+
+### Dashboard Real-time Stream
+
+Server-Sent Events endpoint for real-time dashboard updates.
+
+**Endpoint:** `GET /dashboard/portfolio/:portfolioId/dashboard/stream`
+**Authorization:** Required
+
+**Event Types:**
+- `connected`: Initial connection confirmation
+- `dashboard-data`: Initial portfolio data
+- `dashboard-update`: Periodic updates (every 30s)
+- `rebalance-update`: Immediate updates after rebalancing
+- `heartbeat`: Keep-alive signal (every 30s)
+- `error`: Error notifications
+
+**Example Usage:**
+```javascript
+const eventSource = new EventSource('/api/dashboard/portfolio/{portfolioId}/dashboard/stream', {
+  headers: {
+    'Authorization': 'Bearer your-token'
+  }
+});
+
+eventSource.addEventListener('dashboard-data', (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Dashboard data:', data);
+});
+```
+
+## SSE (Server-Sent Events)
+
+### Analysis Stream
+
+Connect to real-time analysis updates.
+
+**Endpoint:** `GET /sse/analysis`
+**Authorization:** Required
+
+**Event Types:**
+- `analysis`: New analysis data
+- `heartbeat`: Keep-alive signal
+- `error`: Error notifications
+
+**Example Usage:**
+```javascript
+const eventSource = new EventSource('/api/sse/analysis', {
+  headers: {
+    'Authorization': 'Bearer your-token'
+  }
+});
+
+eventSource.addEventListener('analysis', (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Analysis update:', data);
+});
+```
+
+---
+
+### Test Analysis Insert
+
+Insert test analysis data to trigger SSE events.
+
+**Endpoint:** `POST /sse/test-analysis`
+**Authorization:** Required
+
+**Request Body:**
+```json
+{
+  "text": "string"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "analysis": {
+    "id": "string",
+    "text": "string",
+    "createdAt": "string"
+  }
 }
 ```
 
@@ -260,43 +651,7 @@ Create a new portfolio for a smart account.
     "smartAccountId": "string",
     "name": "string",
     "portfolioAddress": "string | null",
-    "deploymentRequired": "boolean",
     "createdAt": "string"
-  }
-}
-```
-
----
-
-### Deploy Portfolio On-Chain
-
-Deploy the portfolio contract via the Portfolio Factory.
-
-**Endpoint:** `POST /portfolio/deploy`
-**Authorization:** User role required
-
-**Request Body:**
-```json
-{
-  "smartAccountId": "string"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Portfolio deployed successfully",
-  "data": {
-    "portfolio": {
-      "id": "string",
-      "portfolioAddress": "string"
-    },
-    "deploymentInfo": {
-      "portfolioAddress": "string",
-      "transactionHash": "string",
-      "userOpHash": "string"
-    }
   }
 }
 ```
@@ -316,7 +671,7 @@ Retrieve portfolio information by smart account ID.
   "success": true,
   "data": {
     "id": "string",
-    "smartAccountId": "string",
+    "smartAccountId": "string", 
     "name": "string",
     "portfolioAddress": "string | null",
     "allocations": [
@@ -331,8 +686,7 @@ Retrieve portfolio information by smart account ID.
           "address": "string"
         }
       }
-    ],
-    "rebalanceLogs": []
+    ]
   }
 }
 ```
@@ -359,7 +713,7 @@ Update the name of a portfolio.
   "success": true,
   "message": "Portfolio name updated successfully",
   "data": {
-    "id": "string",
+    "id": "string", 
     "name": "string"
   }
 }
@@ -367,7 +721,50 @@ Update the name of a portfolio.
 
 ---
 
-## Portfolio Allocations
+## Tokens & Allocations
+
+### Get All Tokens
+
+Retrieve all tokens in the system.
+
+**Endpoint:** `GET /tokens`
+
+**Response:**
+```json
+{
+  "tokens": [
+    {
+      "id": "string",
+      "symbol": "string",
+      "name": "string",
+      "address": "string",
+      "decimals": "number",
+      "createdAt": "string"
+    }
+  ]
+}
+```
+
+---
+
+### Get Token by Symbol
+
+Retrieve a token by its symbol.
+
+**Endpoint:** `GET /tokens/symbol/:symbol`
+
+**Response:**
+```json
+{
+  "id": "string",
+  "symbol": "string",
+  "name": "string", 
+  "address": "string",
+  "decimals": "number"
+}
+```
+
+---
 
 ### Get Portfolio Allocations
 
@@ -383,7 +780,7 @@ Retrieve all allocations for a specific portfolio.
     {
       "id": "string",
       "portfolioId": "string",
-      "tokenId": "string",
+      "tokenId": "string", 
       "percent": "number",
       "amount": "number",
       "token": {
@@ -428,7 +825,7 @@ Set new allocations for a portfolio (replaces existing allocations).
 
 ---
 
-### Delete Single Allocation
+### Delete Allocation
 
 Remove a specific token allocation from a portfolio.
 
@@ -444,211 +841,7 @@ Remove a specific token allocation from a portfolio.
 
 ---
 
-### Delete All Allocations
-
-Remove all allocations from a portfolio.
-
-**Endpoint:** `DELETE /allocations/:portfolioId`
-**Authorization:** User role required
-
-**Response:**
-```json
-{
-  "message": "All allocations deleted successfully"
-}
-```
-
----
-
-## Delegation System
-
-### Create Delegation
-
-Create a new delegation allowing a bot to trade on behalf of the user.
-
-**Endpoint:** `POST /delegations/:smartAccountId`
-**Authorization:** User role required
-
-**Request Body:**
-```json
-{
-  "monitoredTokens": ["string"]
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Delegation created successfully",
-  "delegation": {
-    "id": "string",
-    "smartAccountId": "string",
-    "delegatorAddress": "string",
-    "delegateAddress": "string",
-    "createdAt": "string",
-    "updatedAt": "string"
-  }
-}
-```
-
-**Error Responses:**
-- `404`: User portfolio not found. Please create and deploy a portfolio first.
-
----
-
-### Revoke Delegation
-
-Revoke an existing delegation.
-
-**Endpoint:** `PUT /delegations/:delegationId/revoke`
-**Authorization:** User role required
-
-**Response:**
-```json
-{
-  "message": "Delegation revoked successfully",
-  "delegationId": "string",
-  "revokedAt": "string"
-}
-```
-
----
-
-### Test Redeem Delegation
-
-Test endpoint for delegation redemption (development/testing).
-
-**Endpoint:** `POST /delegations/test/redeem`
-
-**Request Body:**
-```json
-{
-  "data": {
-    "tokenIn": "string",
-    "tokenOut": "string",
-    "amountIn": "string",
-    "amountOutMin": "string",
-    "botAddress": "string",
-    "swapPath": ["string"],
-    "reason": "string"
-  }
-}
-```
-
----
-
-## Token Management
-
-### Create Token
-
-Add a new token to the system.
-
-**Endpoint:** `POST /tokens`
-**Authorization:** Admin required
-
-**Request Body:**
-```json
-{
-  "symbol": "string",
-  "name": "string",
-  "address": "string",
-  "decimals": "number"
-}
-```
-
-**Response:**
-```json
-{
-  "id": "string",
-  "symbol": "string",
-  "name": "string",
-  "address": "string",
-  "decimals": "number",
-  "createdAt": "string"
-}
-```
-
----
-
-### Get All Tokens
-
-Retrieve all tokens in the system.
-
-**Endpoint:** `GET /tokens`
-
-**Response:**
-```json
-{
-  "tokens": [
-    {
-      "id": "string",
-      "symbol": "string",
-      "name": "string",
-      "address": "string",
-      "decimals": "number",
-      "createdAt": "string"
-    }
-  ]
-}
-```
-
----
-
-### Get Token by Symbol
-
-Retrieve a token by its symbol.
-
-**Endpoint:** `GET /tokens/symbol/:symbol`
-
-**Response:**
-```json
-{
-  "id": "string",
-  "symbol": "string",
-  "name": "string",
-  "address": "string",
-  "decimals": "number"
-}
-```
-
----
-
-### Get Token by Address
-
-Retrieve a token by its contract address.
-
-**Endpoint:** `GET /tokens/address/:address`
-
-**Response:**
-```json
-{
-  "id": "string",
-  "symbol": "string",
-  "name": "string",
-  "address": "string",
-  "decimals": "number"
-}
-```
-
----
-
-### Delete Token
-
-Remove a token from the system.
-
-**Endpoint:** `DELETE /tokens/:id`
-**Authorization:** Admin required
-
-**Response:**
-```json
-{
-  "message": "Token deleted successfully"
-}
-```
-
----
-
-## Bot Management
+## Bot Management (Admin)
 
 ### Create Bot
 
@@ -694,7 +887,7 @@ Retrieve all registered bots.
     {
       "id": "string",
       "name": "string",
-      "address": "string",
+      "address": "string", 
       "description": "string",
       "status": "string",
       "lastRunAt": "string | null"
@@ -704,6 +897,447 @@ Retrieve all registered bots.
 ```
 
 ---
+
+### Get Bot by ID
+
+Retrieve a specific bot's information.
+
+**Endpoint:** `GET /bot/:id`
+**Authorization:** Admin required
+
+**Response:**
+```json
+{
+  "id": "string",
+  "name": "string",
+  "address": "string",
+  "description": "string",
+  "status": "string",
+  "lastRunAt": "string | null"
+}
+```
+
+---
+
+### Delete Bot
+
+Remove a bot from the system.
+
+**Endpoint:** `DELETE /bot/:id`
+**Authorization:** Admin required
+
+**Response:**
+```json
+{
+  "message": "Bot deleted successfully"
+}
+```
+
+---
+
+## Contract Configuration (Admin)
+
+### Create or Update Contract Config
+
+Create or update smart contract configuration.
+
+**Endpoint:** `POST /contract`
+**Authorization:** Admin required
+
+**Request Body:**
+```json
+{
+  "contractAddress": "string",
+  "network": "string",
+  "owner": "string",
+  "paused": "boolean",
+  "name": "string"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "string",
+  "contractAddress": "string",
+  "network": "string",
+  "owner": "string",
+  "paused": "boolean",
+  "name": "string",
+  "updatedAt": "string"
+}
+```
+
+---
+
+### Get Contract Config by Address
+
+Retrieve contract configuration by address.
+
+**Endpoint:** `GET /contract/:address`
+**Authorization:** Admin required
+
+**Response:**
+```json
+{
+  "id": "string",
+  "contractAddress": "string",
+  "network": "string", 
+  "owner": "string",
+  "paused": "boolean",
+  "name": "string"
+}
+```
+
+---
+
+### Get All Contract Configs
+
+Retrieve all contract configurations.
+
+**Endpoint:** `GET /contract`
+**Authorization:** Admin required
+
+**Query Parameters:**
+- `network` (optional): Filter by network
+
+**Response:**
+```json
+{
+  "contracts": [
+    {
+      "id": "string",
+      "contractAddress": "string",
+      "network": "string",
+      "owner": "string",
+      "paused": "boolean",
+      "name": "string"
+    }
+  ]
+}
+```
+
+---
+
+### Update Contract Pause Status
+
+Update the pause status of a contract.
+
+**Endpoint:** `PUT /contract/:id/pause`
+**Authorization:** Admin required
+
+**Request Body:**
+```json
+{
+  "paused": "boolean"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Contract pause status updated successfully"
+}
+```
+
+---
+
+### Delete Contract Config
+
+Remove a contract configuration.
+
+**Endpoint:** `DELETE /contract/:id`
+**Authorization:** Admin required
+
+**Response:**
+```json
+{
+  "message": "Contract configuration deleted successfully"
+}
+```
+
+---
+
+## Oracle & Price Data (Admin)
+
+### Start Price Polling
+
+Start automated price data collection.
+
+**Endpoint:** `POST /admin/price-polling/start`
+**Authorization:** Admin required
+
+**Response:**
+```json
+{
+  "message": "Price polling started successfully",
+  "status": "running"
+}
+```
+
+---
+
+### Stop Price Polling
+
+Stop automated price data collection.
+
+**Endpoint:** `POST /admin/price-polling/stop`
+**Authorization:** Admin required
+
+**Response:**
+```json
+{
+  "message": "Price polling stopped successfully", 
+  "status": "stopped"
+}
+```
+
+---
+
+### Get Price Polling Status
+
+Check the status of price polling.
+
+**Endpoint:** `GET /admin/price-polling/status`
+**Authorization:** Admin required
+
+**Response:**
+```json
+{
+  "status": "running | stopped",
+  "lastUpdate": "string",
+  "interval": "number"
+}
+```
+
+---
+
+## Blockchain Operations
+
+### Get Portfolio On-Chain Balance
+
+Get the on-chain balance for a portfolio.
+
+**Endpoint:** `GET /blockchain/portfolio/:portfolioAddress/balance/:tokenAddress`
+
+**Response:**
+```json
+{
+  "balance": "string",
+  "formatted": "string",
+  "decimals": "number"
+}
+```
+
+---
+
+### Execute Swap
+
+Execute a token swap on-chain.
+
+**Endpoint:** `POST /blockchain/swap`
+
+**Request Body:**
+```json
+{
+  "portfolioAddress": "string",
+  "tokenIn": "string",
+  "tokenOut": "string", 
+  "amountIn": "string",
+  "minAmountOut": "string"
+}
+```
+
+**Response:**
+```json
+{
+  "success": "boolean",
+  "transactionHash": "string",
+  "gasUsed": "string"
+}
+```
+
+---
+
+### Get Portfolio Allocation
+
+Get current on-chain allocation for a portfolio.
+
+**Endpoint:** `GET /blockchain/portfolio/:portfolioAddress/allocation`
+
+**Response:**
+```json
+{
+  "allocations": [
+    {
+      "token": "string",
+      "balance": "string",
+      "percentage": "number"
+    }
+  ],
+  "totalValue": "string"
+}
+```
+
+---
+
+### Get Token Price
+
+Get the current price of a token.
+
+**Endpoint:** `GET /blockchain/price/:tokenAddress`
+
+**Response:**
+```json
+{
+  "price": "string", 
+  "priceUsd": "number",
+  "lastUpdated": "string"
+}
+```
+
+---
+
+## Webhooks
+
+### User Agent Webhook
+
+Webhook endpoint for external integrations.
+
+**Endpoint:** `POST /webhook`
+**Authorization:** Webhook authentication required
+
+**Request Body:**
+```json
+{
+  "event": "string",
+  "data": "object"
+}
+```
+
+**Response:**
+```json
+{
+  "success": "boolean",
+  "message": "string"
+}
+```
+
+---
+
+## Error Handling
+
+The API uses standard HTTP status codes and returns error responses in the following format:
+
+```json
+{
+  "success": false,
+  "error": "string",
+  "message": "string"
+}
+```
+
+### Common Status Codes
+
+- `200 OK`: Request successful
+- `201 Created`: Resource created successfully
+- `400 Bad Request`: Invalid request parameters
+- `401 Unauthorized`: Authentication required or invalid
+- `403 Forbidden`: Insufficient permissions
+- `404 Not Found`: Resource not found
+- `500 Internal Server Error`: Server error
+
+### Authentication Errors
+
+```json
+{
+  "message": "Unauthorized: User info missing"
+}
+```
+
+### Validation Errors
+
+```json
+{
+  "error": "Field validation error",
+  "message": "Specific validation message"
+}
+```
+
+---
+
+## Rate Limiting
+
+The API implements rate limiting to ensure service stability. Limits vary by endpoint:
+
+- **Authentication endpoints**: 10 requests per minute
+- **Data retrieval**: 100 requests per minute  
+- **Data modification**: 50 requests per minute
+- **Admin operations**: 20 requests per minute
+
+Rate limit headers are included in responses:
+
+```http
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 99
+X-RateLimit-Reset: 1640995200
+```
+
+---
+
+## WebSocket & Real-time Features
+
+### Server-Sent Events (SSE)
+
+The API provides real-time updates through SSE endpoints:
+
+1. **Dashboard Stream**: `/dashboard/portfolio/:portfolioId/dashboard/stream`
+2. **Analysis Stream**: `/sse/analysis`
+
+### Connection Management
+
+- Automatic reconnection on connection loss
+- Heartbeat messages to maintain connection
+- Error handling for network issues
+- Connection limits per user (max 5 concurrent)
+
+---
+
+## SDK Examples
+
+### JavaScript/TypeScript
+
+```typescript
+// Initialize API client
+const api = new MetaSmartPortAPI({
+  baseURL: 'https://api.metasmartport.com/api',
+  authToken: 'your-jwt-token'
+});
+
+// Create smart account
+const account = await api.smartAccounts.create({
+  portfolioName: 'My Portfolio',
+  autoDeploy: true
+});
+
+// Set portfolio allocations
+await api.allocations.set(portfolioId, [
+  { tokenId: 'token1', percent: 60 },
+  { tokenId: 'token2', percent: 40 }
+]);
+
+// Connect to real-time dashboard
+const stream = api.dashboard.stream(portfolioId);
+stream.on('dashboard-update', (data) => {
+  console.log('Portfolio updated:', data);
+});
+```
+
+---
+
+## Conclusion
+
+This API documentation covers all endpoints available in the MetaSmartPort platform. For additional support or questions, please refer to the technical documentation or contact the development team.
 
 ### Get Bot by ID
 
@@ -1088,6 +1722,8 @@ Real-time updates for analysis and rebalancing events.
 - `rebalance_complete`: Portfolio rebalancing completed
 - `rebalance_failed`: Portfolio rebalancing failed
 - `price_update`: New market price data
+
+**Note:** For real-time portfolio dashboard updates, use the dedicated dashboard SSE endpoint documented in the Dashboard section: `/dashboard/portfolio/:portfolioId/dashboard/stream`
 
 **Example Events:**
 ```javascript

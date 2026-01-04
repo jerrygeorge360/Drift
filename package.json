@@ -11,9 +11,9 @@
     "migrate": "npx prisma migrate dev --schema=src/schema.prisma",
     "predev:all": "npm run clean && npm run generate && npm run build && npm run migrate",
     "dev:all": "concurrently \"npm run start\" \"npm run worker\" \"npm run start:poller\"",
-    "start": "node dist/server.js",
-    "start:poller": "node dist/poller.js",
-    "worker": "node dist/worker.js",
+    "start": "node dist/src/server.js",
+    "start:poller": "node dist/src/poller.js",
+    "worker": "node dist/src/worker.js",
     "test": "jest"
   },
   "prisma": {

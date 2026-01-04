@@ -36,18 +36,21 @@ graph TB
     subgraph "Frontend Layer"
         UI[Dashboard UI]
         SSE[Real-time Updates]
+        DASH[Portfolio Dashboard]
     end
     
     subgraph "API Layer"
         API[Express Server]
         AUTH[SIWE Authentication]
         RATE[Rate Limiting]
+        DASHAPI[Dashboard API]
     end
     
     subgraph "Business Logic"
         REBAL[Rebalancer Engine]
         AI[AI Snapshot Agent]
         DEL[Delegation Manager]
+        DASHSVC[Dashboard Service]
         ORCH[Workflow Orchestrator]
     end
     
@@ -67,18 +70,24 @@ graph TB
     UI --> API
     API --> REBAL
     API --> AI
+    API --> DASHAPI
     REBAL --> DEL
     AI --> QUEUE
     QUEUE --> REDIS
     API --> DB
+    DASHAPI --> DASHSVC
+    DASHSVC --> DB
     DEL --> SA
     SA --> DEX
     ORACLE --> API
+    DASH --> DASHAPI
+    SSE --> DASHAPI
     
     style AI fill:#ff6b6b
     style REBAL fill:#4ecdc4
     style SA fill:#45b7d1
     style DEX fill:#96ceb4
+    style DASH fill:#ffa726
 ```
 
 ### Technology Stack Excellence
@@ -91,6 +100,7 @@ graph TB
 | **Database** | PostgreSQL, Prisma ORM | Optimized schema with migration management |
 | **Queue** | BullMQ, Redis | Distributed job processing with retry logic |
 | **Monitoring** |  SSE | Real-time analytics with comprehensive logging |
+| **Dashboard** | SSE, REST APIs | Real-time portfolio monitoring and analytics |
 
 ---
 
@@ -117,6 +127,18 @@ graph TB
 
 **Result**: AI agent maintains context across analysis cycles, improving insight quality
 
+### Real-time Dashboard System
+
+**Innovation**: Live portfolio monitoring with Server-Sent Events (SSE)
+**Implementation**:
+- Real-time portfolio value calculation and drift analysis
+- Automated dashboard updates every 30 seconds
+- Instant notifications on rebalance events
+- Historical performance tracking based on rebalance data
+- Multi-user support with connection management
+
+**Impact**: Users get instant visibility into portfolio performance and can monitor rebalancing activities in real-time
+
 ### Enhanced Security Architecture
 
 **Multi-layered Protection**:
@@ -127,6 +149,33 @@ graph TB
 
 ---
 
+## System Capabilities
+
+### Portfolio Management
+- **Smart Account Creation**: ERC-4337 account abstraction with delegation
+- **Multi-token Portfolio**: Support for diverse token allocations
+- **Automated Rebalancing**: AI-driven portfolio rebalancing with drift analysis
+- **Real-time Monitoring**: Live dashboard with SSE updates
+- **Historical Tracking**: Complete audit trail of all portfolio activities
+
+### Dashboard & Analytics
+- **Live Portfolio Metrics**: Real-time total asset value calculation
+- **Token Breakdown**: Individual token amounts, values, and percentage allocations
+- **Drift Analysis**: Real-time monitoring of allocation drift from target percentages
+- **Performance Timeline**: Historical portfolio value changes based on rebalance activities
+- **Instant Notifications**: Immediate updates when rebalances occur via SSE
+
+### AI-Powered Analysis
+- **Market Intelligence**: Real-time price trend analysis and volatility assessment
+- **Memory Persistence**: Long-term context retention for pattern recognition
+- **Explainable Decisions**: Detailed rationale for every trading recommendation
+- **Risk Assessment**: Comprehensive risk analysis and alerting
+
+### Security & Control
+- **Non-custodial Design**: Users maintain full control of their funds
+- **Scoped Permissions**: Granular delegation controls for bot access
+- **Audit Trails**: Complete logging of all system operations
+- **Multi-layer Protection**: Enterprise-grade security measures
 
 ---
 

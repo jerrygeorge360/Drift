@@ -17,6 +17,7 @@ The goal is simple: bridge the gap between off-chain intelligence and on-chain e
 
 *   **ERC-7715 Delegation**: Utilizes the new standard for granular permissions, allowing execution bots to rebalance portfolios without having full access to user funds.
 *   **Dynamic Allocations**: Users define target percentages (e.g., 40% ETH, 30% USDC, 30% MON), and the system maintains them.
+*   **Real-time Dashboard**: Live portfolio monitoring with SSE updates, showing asset values, drift analysis, and rebalancing activities in real-time.
 *   **Explainable AI**: Every automated action is backed by an analysis from a memory-equipped agent, explaining exactly *why* a rebalance was triggered.
 *   **Dual Price Discovery**: Configurable pricing via **CoinGecko Oracle** or **Uniswap V2 Router** to prevent arbitrage and ensure accurate execution.
 *   **Security First**: Built on ERC-4337, ensuring users retain full ownership while delegating specific, scoped actions.
