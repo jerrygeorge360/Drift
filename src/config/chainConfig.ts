@@ -1,7 +1,6 @@
 import { Chain } from "viem";
 import { monadTestnet, sepolia } from "viem/chains";
 import { initializeWithValidation as initializeMonad } from "./metamask_monadtestnet_config.js";
-import { initializeWithValidation as initializeSepolia } from "./metamask_sepolia_config.js";
 
 export type SupportedChain = "monad" | "sepolia";
 
@@ -9,7 +8,7 @@ export interface ChainConfig {
     chain: Chain;
     chainId: number;
     name: string;
-    initialize: () => void;
+    initialize?: () => void;
 }
 
 export const SUPPORTED_CHAINS: Record<SupportedChain, ChainConfig> = {
@@ -23,7 +22,6 @@ export const SUPPORTED_CHAINS: Record<SupportedChain, ChainConfig> = {
         chain: sepolia,
         chainId: 11155111,
         name: "Sepolia Testnet",
-        initialize: initializeSepolia,
     },
 };
 
@@ -63,7 +61,7 @@ export function isValidChain(chainId: string): chainId is SupportedChain {
  */
 export function initializeChainEnvironment(chainId: SupportedChain): void {
     const config = getChainConfig(chainId);
-    config.initialize();
+    config.initialize?.();
 }
 
 export default {
